@@ -1,0 +1,100 @@
+# TurboImmi — Setup checklist (Day 0)
+
+> Complete before Day 2 AWS deploy.  
+> Region for P0: **`us-east-2`**. Resource prefix: **`turboimmi-dev`**.  
+> Record account IDs, model IDs, Cognito prefix, personal emails, and CloudFront URL in **local** `.env` and `docs/SETUP.local.md` only (gitignored). Never put those values in this file or in git. Public docs may name variables (e.g. `BUDGET_ALERT_EMAIL`).
+
+## Accounts & CLI
+
+- [x] AWS console login works
+- [x] Daily work uses IAM Identity Center (SSO) or least-privilege IAM user (not root)
+- [x] AWS CLI v2 installed
+- [x] `aws sts get-caller-identity` returns the expected account/ARN
+- [x] CLI default/region set to `us-east-2`
+- [x] Credentials only in `~/.aws/` — never committed
+- [x] **`cdk bootstrap aws://<account>/us-east-2`** succeeded (`CDKToolkit` CREATE_COMPLETE)
+
+## Agent Toolkit for AWS (local AI assist)
+
+The AWS [Agent Toolkit](https://docs.aws.amazon.com/agent-toolkit/latest/userguide/quick-start.html) is **local Day 0 tooling** (Cursor MCP + skills). It is not a runtime dependency of TurboImmi.
+
+- [x] AWS CLI `configure agent-toolkit` completed (skills + `aws-mcp`)
+- [x] Cursor MCP `aws-mcp` points at CLI profile `default` via `AWS_MCP_PROXY_PROFILES`
+- [x] Restart Cursor after MCP changes so the new server loads (MCP calls succeed)
+- Note: the Agent Toolkit **control plane** is `us-east-1` (AWS constraint). App resources stay in **`us-east-2`**.
+
+## Local tooling (Windows notes)
+
+This project is commonly developed on Windows 10/11 + PowerShell.
+
+- [x] Node.js 20+ (`node -v`)
+- [x] npm available (`npm -v`)
+- [ ] Python 3.12 (`py -3.12 --version` or `python --version`) — still optional locally; machine has 3.13 + 3.11. CDK uses `infra/.venv` (3.13). Lambda **runtime** stays 3.12
+- [x] AWS CDK available via `npx aws-cdk` (activate `infra/.venv` first so `python` sees `aws-cdk-lib`)
+- [x] Git + GitHub SSH/HTTPS push works
+- [ ] **Docker Desktop** — not required for Day 2 Lambda bundle (local pip manylinux wheels). Start Docker only if that bundler fails
+- [x] Local loop: Vite `localhost:5173` + FastAPI `localhost:8000` `/health` (Day 1). Day 3 `/me` and `/cases` proxy to FastAPI. Real Cognito/DDB when `USERS_TABLE` / `USER_POOL_ID` are set in local `.env`. No LocalStack.
+
+From repo root (two terminals):
+
+```text
+cd backend
+.\.venv\Scripts\python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+cd frontend
+npm run dev
+```
+
+`pytest` from `backend/` (activate `backend/.venv`). `cdk synth` from `infra/` (activate `infra/.venv`).
+
+## AWS enablement
+
+- [x] Billing/budget alarm (**$10 / month**, `turboimmi-dev-monthly`) — CLI-created, then **recreated by CDK** (local ADR 013; CloudFormation cannot import `AWS::Budgets::Budget`)
+- [x] Day 0: `infra/` CDK app + `.env.example`; copy to `.env` and set `BUDGET_ALERT_EMAIL` locally (never commit `.env`)
+- [x] Bedrock model access enabled in `us-east-2` (Amazon Nova chat + vision + Titan embeddings)
+- [x] Record chosen model IDs in **`SETUP.local.md`** (IDs change over time)
+- [x] Tiny Bedrock **Converse** / InvokeModel “hello” succeeds (Nova Lite text + vision; Titan Embeddings V2)
+- [x] **Converse-first:** 15-minute AgentCore probe in `us-east-2` — **skipped for P0** (control-plane APIs work; `agentcore` CLI not installed; no harness created). Note in `SETUP.local.md`
+- [x] **RAG:** in-Lambda embeddings + cosine (no OpenSearch Serverless; no Bedrock KB in P0). Note in `SETUP.local.md`
+- [x] Can create Cognito User Pool, S3, CloudFront, API Gateway, Lambda, DynamoDB (no SCP blocks observed; CDK stack already deployed)
+- [x] IAM can pass roles to Lambda / CloudFront (confirmed Day 2 deploy)
+
+## Auth planning
+
+- [x] Cognito Hosted UI domain prefix planned as **`turboimmi-dev`** (available; add a suffix if taken on Day 2); record the final value in `SETUP.local.md`
+- [x] Plan Cognito callback + sign-out URLs for:
+  - `http://localhost:5173` (Vite dev)
+  - CloudFront URL (fill in `SETUP.local.md` after first Day 2 deploy)
+- [x] Plan CORS allowlist for the same origins
+- [x] Role assignment = in-app chooser after first login → `POST /me/role` → `AdminAddUserToGroup` → token refresh; **no self-switch** after first choose
+- [x] Cognito **default email** (no SES) for verification; watch the daily send cap
+
+## Data protection
+
+- [x] Prefill uploads bucket: private, SSE, **lifecycle expiry 14 days**
+- [x] DynamoDB **PITR** enabled on every P0 table
+- [ ] Placeholder ToS + Privacy Policy text drafted (Day 4 pages) — counsel review before public launch
+
+## Secrets & CI
+
+- [x] No long-lived keys, personal emails, account IDs, or PII in git or frontend
+- [x] Real setup values only in `.env` and `SETUP.local.md`; commit `.env.example` with **empty keys** only (`BUDGET_ALERT_EMAIL=`, `BEDROCK_*_MODEL_ID=`)
+- [x] Plan SSM paths later: `/turboimmi/dev/...`
+- [x] GitHub Actions auth = **OIDC to AWS** (implement the deploy job on **Day 12** in CDK — do not create the provider/role by CLI now). Planned: provider `token.actions.githubusercontent.com`; IAM role in `us-east-2` trusted by this GitHub repo’s `main`; permissions limited to CDK deploy + `s3 sync` + CloudFront invalidate
+- [x] Read [GIT_AND_CICD.md](GIT_AND_CICD.md): feature branches → PR → `main`; CI checks from Day 2; CD from Day 12; IaC-first (no lasting click-ops)
+
+## Repo hygiene
+
+- [ ] Public starter files on `main` when the owner asks to commit (never commit local planning files)
+
+## Day 0 exit (all required)
+
+- [x] STS OK in us-east-2
+- [x] `cdk bootstrap` done
+- [x] Bedrock Converse works; model IDs recorded in `SETUP.local.md`
+- [x] Billing alarm set; CDK construct in `infra/`; **CDK-owned** after one-time delete + `cdk deploy` (local ADR 013)
+- [x] Node / CDK (`npx aws-cdk`) OK; Python 3.12 still optional locally (3.13 venv used for CDK synth; Lambda runtime stays 3.12)
+- [x] RAG approach decided: in-Lambda retrieval (ADR 009)
+- [x] AgentCore skipped for P0 (noted in `SETUP.local.md`)
+
+**Day 3 is deployed** (same CDK stack: profile/case APIs + role chooser). After Day 0, do **not** create more AWS resources with the CLI except Bedrock model access. **Next:** owner test, then commit so CI can run; Day 4 landing / ToS / Privacy.

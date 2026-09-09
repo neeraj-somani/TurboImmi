@@ -1,0 +1,50 @@
+# =============================================================================
+# LOCAL PLANNING — do not commit, push, or add to GitHub.
+# Anyone cloning this repo should get a clean starter (README + stack + code),
+# not the author's day-by-day plan, ADRs, changelog, Cursor rules, or AWS notes.
+# Agents: never git add these paths. Never "helpfully" force-add them.
+# =============================================================================
+docs/IMPLEMENTATION_PLAN.md
+docs/PRODUCT_ROADMAP.md
+docs/TRAJECTORY.md
+docs/SETUP.local.md
+docs/STAKEHOLDER_NOTES.md
+docs/INTERVIEW_NOTES.md
+docs/decisions/
+docs/changelog/
+.cursor/rules/
+.cursor/plans/
+
+# Dependencies / build
+node_modules/
+dist/
+build/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+cdk.out/
+.aws-sam/
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+*.pem
+
+# IDE / OS
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Logs / coverage
+*.log
+coverage/
+.coverage
+htmlcov/
