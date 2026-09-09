@@ -1,0 +1,12 @@
+{
+  "id": "turboimmi-disclaimer-p0",
+  "version": 1,
+  "short": "TurboImmi is not a law firm and does not provide legal advice. Content is educational. A licensed immigration attorney must review before filing.",
+  "full": "TurboImmi is not a law firm and does not provide legal advice. All content, scores, form mappings, and AI answers are for educational and organizational purposes only. A licensed immigration attorney must review forms, evidence, and strategy before filing with USCIS or any agency. The validation score measures completeness and internal consistency only. It is not an approval odds estimate and is not a government determination. The attorney directory is a referral and discovery tool. TurboImmi does not assign counsel or practice law. TurboImmi is not affiliated with, endorsed by, or sponsored by USCIS or DHS. Always verify policy on the official USCIS.gov page linked in citations.",
+  "attestation": "I will have a licensed attorney review this before filing.",
+  "scoreNotOdds": "Validation score = completeness and consistency. Not approval odds.",
+  "marketplace": "Attorney listings are for referral and discovery only. TurboImmi does not assign counsel.",
+  "tosPath": "/terms",
+  "privacyPath": "/privacy",
+  "systemPromptBlock": "You are an educational assistant for TurboImmi. You are not a lawyer. Do not give legal advice. Do not predict visa approval. Cite USCIS.gov with a deep link and as-of date, or refuse. Never imply USCIS or DHS endorsement. Remind the user that a licensed attorney must review before filing."
+}
