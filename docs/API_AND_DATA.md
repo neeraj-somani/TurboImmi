@@ -1,6 +1,6 @@
 # TurboImmi — API and data (P0)
 
-> **Status:** Day 3 profile / case / role APIs. Remaining routes land on later days; do not sprawl past this list.  
+> **Status:** Day 3 profile / case / role APIs + Day 4 SPA disclaimer gate / draft ToS+Privacy. Remaining routes land on later days; do not sprawl past this list.  
 > Region: **`us-east-2`**. Table prefix: **`turboimmi-dev-`**.  
 > Educational only; not a law firm; not legal advice. Attorney review is mandatory before filing.
 
@@ -112,9 +112,18 @@ Extract **suggestions** only. TTL on `expiresAt`.
 |--|--|
 | PK | `USER#{cognitoSub}` |
 | SK | `JOB#{jobId}` |
-| Attrs | `status` (`uploaded` \| `extracted` \| `confirmed` \| `deleted`), `docType` (`passport` \| `offer_letter`), `s3Key`, `suggestions` (structured fields, **never raw OCR text**), `expiresAt` (unix TTL) |
+| Attrs | `status` (`uploaded` \| `extracted` \| `confirmed` \| `deleted`), `docType` (`passport` \| `offer_letter`), `s3Key`, `suggestions` (structured fields, **never raw OCR text**), `source` (`bedrock` \| `fixture`), `extractDay` (UTC `YYYY-MM-DD` for the daily cap), `expiresAt` (unix TTL) |
 
-**Confirm-prefill is the only profile write from OCR.** Skip-upload / manual entry must work without a job.
+**Confirm-prefill is the only profile write from OCR.** Skip-upload / manual entry must work without a job. Extract is capped at **3 successful extracts per user per UTC day** (`429 RATE_LIMIT`); later delete/confirm does not reset the day count. If `DOCS_BUCKET` is unset, `uploadUrl` is null and `skipUpload: true` (tests and local without S3).
+
+**Bodies (Day 5)**
+
+| Path | Body / response |
+|------|-----------------|
+| `POST /prefill/upload-url` | `{ docType, contentType, contentLength }` → `{ jobId, uploadUrl, headers, skipUpload, docType }` |
+| `POST /prefill/extract` | `{ jobId }` → job with `suggestions` |
+| `POST /prefill/confirm` | `{ jobId, fields }` → profile (`confirmedPrefillAt` set; S3 object deleted) |
+| `DELETE /prefill/uploads` | → `{ deleted }` |
 
 ---
 

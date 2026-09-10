@@ -18,15 +18,15 @@ Cursor users: follow [AGENTS.md](AGENTS.md). Author `.cursor/rules/` are local a
 
 ## Status
 
-P0 stack and Git/CI/CD **locked**. Day 3 is live in `us-east-2`: profile/case APIs and in-app Applicant/Attorney chooser with role lock. Local loop remains Vite (`localhost:5173`) + FastAPI (`localhost:8000`).
+P0 stack and Git/CI/CD **locked**. Day 5 confirm-before-write prefill is live in `us-east-2` (disclaimer gate, draft ToS/Privacy, dual dashboards, passport/offer-letter confirm UI). Local loop remains Vite (`localhost:5173`) + FastAPI (`localhost:8000`).
 
-**Next:** Day 4 landing, disclaimer gate, placeholder ToS + Privacy.
+**Next:** Day 6 short H-1B intent interview.
 
 ## Stack (P0)
 
 React 18 + TypeScript + Vite + Tailwind on S3 + CloudFront; Cognito; API Gateway HTTP API + Python 3.12 Lambda (FastAPI + Mangum); DynamoDB (few tables); Bedrock Converse; CDK Python. **Region: `us-east-2`.** MIT licensed.
 
-## Stack outputs (Day 3)
+## Stack outputs (Day 5)
 
 - CloudFront URL: https://dbez90hle5qkw.cloudfront.net
 - Cognito User Pool ID: `us-east-2_C31ugmbVD`

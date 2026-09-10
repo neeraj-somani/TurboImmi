@@ -2,6 +2,9 @@ import { FormEvent, useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { apiJson, type CaseRecord, type ProfileResponse } from "../api";
 import { startHostedUiLogout } from "../auth";
+import AttorneyReviewAttestation from "../components/AttorneyReviewAttestation";
+import SiteFooter from "../components/SiteFooter";
+import PrefillPanel from "../components/PrefillPanel";
 import { useSpa } from "../spa";
 
 const STAGES = ["f1", "cpt", "opt", "stem_opt", "h1b", "h4", "h4_ead", "perm", "i140", "aos"] as const;
@@ -15,6 +18,7 @@ export default function ApplicantHome() {
   const [status, setStatus] = useState("");
   const [stage, setStage] = useState("h1b");
   const [cases, setCases] = useState<CaseRecord[]>([]);
+  const [attested, setAttested] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -98,7 +102,7 @@ export default function ApplicantHome() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-sm font-medium uppercase tracking-wide text-slate-500">Applicant</p>
-            <h1 className="mt-1 text-2xl font-semibold">Profile and cases</h1>
+            <h1 className="mt-1 text-2xl font-semibold">Your H-1B workspace</h1>
           </div>
           <div className="flex gap-3 text-sm">
             <Link className="underline" to="/">
@@ -110,9 +114,34 @@ export default function ApplicantHome() {
           </div>
         </div>
         <p className="mt-3 text-sm text-slate-600">
-          Educational only. A licensed attorney must review before filing. This is not a score of
+          Educational only. A licensed attorney must review before filing. Completeness is not
           approval odds.
         </p>
+        <ul className="mt-6 grid gap-3 sm:grid-cols-3">
+          <li className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
+            <p className="font-medium">Profile</p>
+            <p className="mt-1 text-slate-600">Save names and job facts below.</p>
+          </li>
+          <li className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
+            <p className="font-medium">Documents</p>
+            <p className="mt-1 text-slate-600">Optional confirm-before-save prefill.</p>
+          </li>
+          <li className="rounded-lg border border-dashed border-slate-300 p-3 text-sm text-slate-600">
+            <p className="font-medium text-slate-800">Attorneys</p>
+            <p className="mt-1">Directory and consult request come later.</p>
+          </li>
+        </ul>
+        <PrefillPanel
+          config={config}
+          onApplied={(profile) => {
+            setGiven(profile.legalName?.given ?? "");
+            setFamily(profile.legalName?.family ?? "");
+            setJobTitle(profile.jobTitle ?? "");
+            setEmployer(profile.employerLegalName ?? "");
+          }}
+          onMessage={setMessage}
+          onError={setError}
+        />
         <form className="mt-8 space-y-4 rounded-lg border border-slate-200 bg-white p-5" onSubmit={(event) => void onSave(event)}>
           <p className="font-medium">Profile</p>
           <label className="block text-sm">
@@ -198,8 +227,16 @@ export default function ApplicantHome() {
             </ul>
           )}
         </section>
+        <div className="mt-8">
+          <AttorneyReviewAttestation
+            checked={attested}
+            onChange={setAttested}
+            note="Practice checkbox for the later ready-to-file gate. It does not file anything and is not stored on the server yet."
+          />
+        </div>
         {message ? <p className="mt-4 text-sm text-emerald-800">{message}</p> : null}
         {error ? <p className="mt-4 text-sm text-red-700">{error}</p> : null}
+        <SiteFooter />
       </div>
     </main>
   );

@@ -23,6 +23,13 @@ JOURNEY_STAGES = (
 CASE_STATUSES = ("draft", "in_progress")
 INTENTS = ("cap", "transfer", "extension")
 ENTRY_PATHS = ("change_of_status", "consular")
+PREFILL_STATUSES = ("uploaded", "extracted", "confirmed", "deleted")
+DOC_TYPES = ("passport", "offer_letter")
+ACTIVE_UPLOAD_STATUSES = ("uploaded", "extracted")
+MAX_ACTIVE_UPLOADS = 2
+MAX_EXTRACTS_PER_UTC_DAY = 3
+MAX_UPLOAD_BYTES = 8 * 1024 * 1024
+ALLOWED_CONTENT_TYPES = ("image/jpeg", "image/png", "application/pdf")
 
 _store: "Store | None" = None
 
@@ -31,8 +38,22 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def new_job_id() -> str:
+    return uuid4().hex
+
+
 def new_case_id() -> str:
     return uuid4().hex
+
+
+def utc_day() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+def ttl_unix(days: int) -> int:
+    from time import time
+
+    return int(time()) + days * 86400
 
 
 def user_pk(sub: str) -> str:
@@ -119,6 +140,20 @@ def public_case(item: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def public_job(item: dict[str, Any]) -> dict[str, Any]:
+    out: dict[str, Any] = {
+        "jobId": item.get("jobId"),
+        "docType": item.get("docType"),
+        "status": item.get("status"),
+        "source": item.get("source"),
+        "createdAt": item.get("createdAt"),
+        "updatedAt": item.get("updatedAt"),
+    }
+    if item.get("suggestions"):
+        out["suggestions"] = dict(item["suggestions"])
+    return out
+
+
 def drop_none(item: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in item.items() if value is not None}
 
@@ -134,11 +169,21 @@ class Store(Protocol):
 
     def put_case(self, item: dict[str, Any]) -> None: ...
 
+    def list_jobs(self, sub: str) -> list[dict[str, Any]]: ...
+
+    def get_job(self, sub: str, job_id: str) -> dict[str, Any] | None: ...
+
+    def put_job(self, item: dict[str, Any]) -> None: ...
+
+    def put_audit(self, item: dict[str, Any]) -> None: ...
+
 
 class MemoryStore:
     def __init__(self) -> None:
         self._users: dict[str, dict[str, Any]] = {}
         self._cases: dict[tuple[str, str], dict[str, Any]] = {}
+        self._jobs: dict[tuple[str, str], dict[str, Any]] = {}
+        self._audits: list[dict[str, Any]] = []
 
     def get_user(self, sub: str) -> dict[str, Any] | None:
         item = self._users.get(sub)
@@ -162,6 +207,23 @@ class MemoryStore:
         case_id = str(item.get("caseId") or "")
         self._cases[(sub, case_id)] = dict(item)
 
+    def list_jobs(self, sub: str) -> list[dict[str, Any]]:
+        rows = [dict(item) for (owner, _), item in self._jobs.items() if owner == sub]
+        rows.sort(key=lambda row: str(row.get("createdAt") or ""), reverse=True)
+        return rows
+
+    def get_job(self, sub: str, job_id: str) -> dict[str, Any] | None:
+        item = self._jobs.get((sub, job_id))
+        return dict(item) if item else None
+
+    def put_job(self, item: dict[str, Any]) -> None:
+        sub = str(item["pk"]).removeprefix("USER#")
+        job_id = str(item.get("jobId") or "")
+        self._jobs[(sub, job_id)] = dict(item)
+
+    def put_audit(self, item: dict[str, Any]) -> None:
+        self._audits.append(dict(item))
+
 
 class DynamoStore:
     def __init__(self) -> None:
@@ -171,6 +233,10 @@ class DynamoStore:
         ddb = boto3.resource("dynamodb", region_name=region)
         self._users = ddb.Table(os.environ["USERS_TABLE"])
         self._cases = ddb.Table(os.environ["CASES_TABLE"])
+        prefill = os.environ.get("PREFILL_TABLE") or "turboimmi-dev-prefill-jobs"
+        audit = os.environ.get("AUDIT_TABLE") or "turboimmi-dev-ai-audit"
+        self._jobs = ddb.Table(prefill)
+        self._audit = ddb.Table(audit)
 
     def get_user(self, sub: str) -> dict[str, Any] | None:
         resp = self._users.get_item(Key={"pk": user_pk(sub), "sk": "PROFILE"})
@@ -197,6 +263,27 @@ class DynamoStore:
 
     def put_case(self, item: dict[str, Any]) -> None:
         self._cases.put_item(Item=drop_none(item))
+
+    def list_jobs(self, sub: str) -> list[dict[str, Any]]:
+        from boto3.dynamodb.conditions import Key
+
+        resp = self._jobs.query(
+            KeyConditionExpression=Key("pk").eq(user_pk(sub)) & Key("sk").begins_with("JOB#")
+        )
+        rows = [dict(item) for item in resp.get("Items") or []]
+        rows.sort(key=lambda row: str(row.get("createdAt") or ""), reverse=True)
+        return rows
+
+    def get_job(self, sub: str, job_id: str) -> dict[str, Any] | None:
+        resp = self._jobs.get_item(Key={"pk": user_pk(sub), "sk": f"JOB#{job_id}"})
+        item = resp.get("Item")
+        return dict(item) if item else None
+
+    def put_job(self, item: dict[str, Any]) -> None:
+        self._jobs.put_item(Item=drop_none(item))
+
+    def put_audit(self, item: dict[str, Any]) -> None:
+        self._audit.put_item(Item=drop_none(item))
 
 
 def get_store() -> Store:

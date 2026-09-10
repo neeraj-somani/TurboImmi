@@ -1,5 +1,7 @@
 import { getIdToken, type SpaConfig } from "./auth";
 
+export type { SpaConfig };
+
 export type Me = {
   sub: string;
   email?: string | null;
@@ -20,6 +22,11 @@ export type ProfileResponse = {
     journeyStage?: string;
     employerLegalName?: string;
     jobTitle?: string;
+    wageAmount?: string;
+    worksiteAddress?: string;
+    passportNumber?: string;
+    passportExpiry?: string;
+    confirmedPrefillAt?: string;
   };
 };
 

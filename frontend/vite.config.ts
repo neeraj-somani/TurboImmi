@@ -12,6 +12,7 @@ export default defineConfig({
       "/disclaimer": "http://127.0.0.1:8000",
       "/me": "http://127.0.0.1:8000",
       "/cases": "http://127.0.0.1:8000",
+      "/prefill": "http://127.0.0.1:8000",
     },
   },
 });

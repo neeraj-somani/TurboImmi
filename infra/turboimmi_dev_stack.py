@@ -301,8 +301,8 @@ class TurboImmiDevStack(Stack):
             runtime=lambda_.Runtime.PYTHON_3_12,
             architecture=lambda_.Architecture.X86_64,
             handler="app.main.handler",
-            memory_size=256,
-            timeout=Duration.seconds(15),
+            memory_size=512,
+            timeout=Duration.seconds(45),
             environment={
                 "CORS_ORIGINS": f"{LOCALHOST},{cf_https}",
                 "USER_POOL_ID": pool.user_pool_id,
@@ -315,6 +315,7 @@ class TurboImmiDevStack(Stack):
                 "POLICY_TABLE": tables["policy"].table_name,
                 "AUDIT_TABLE": tables["audit"].table_name,
                 "DOCS_BUCKET": docs_bucket.bucket_name,
+                "BEDROCK_VISION_MODEL_ID": os.environ.get("BEDROCK_VISION_MODEL_ID", ""),
             },
             code=lambda_.Code.from_asset(
                 str(REPO),
@@ -356,6 +357,16 @@ class TurboImmiDevStack(Stack):
                     "cognito-idp:AdminListGroupsForUser",
                 ],
                 resources=[pool.user_pool_arn],
+            )
+        )
+        fn.add_to_role_policy(
+            iam.PolicyStatement(
+                sid="BedrockExtract",
+                actions=["bedrock:InvokeModel"],
+                resources=[
+                    "arn:aws:bedrock:*:*:inference-profile/*",
+                    "arn:aws:bedrock:*::foundation-model/*",
+                ],
             )
         )
 

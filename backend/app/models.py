@@ -57,3 +57,21 @@ class PatchCaseBody(BaseModel):
     lcaEtaNumber: str | None = None
     status: Literal["draft", "in_progress"] | None = None
     formFields: dict[str, Any] | None = Field(default=None)
+
+
+class UploadUrlBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    docType: Literal["passport", "offer_letter"]
+    contentType: Literal["image/jpeg", "image/png", "application/pdf"]
+    contentLength: int
+
+
+class ExtractBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    jobId: str
+
+
+class ConfirmPrefillBody(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    jobId: str
+    fields: ProfileBody

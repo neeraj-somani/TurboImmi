@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { ApiError, apiJson, homePath } from "../api";
 import { refreshSession } from "../auth";
+import SiteFooter from "../components/SiteFooter";
 import { useSpa } from "../spa";
 
 export default function RoleChooser() {
@@ -75,6 +76,7 @@ export default function RoleChooser() {
           </button>
         </div>
         {error ? <p className="mt-4 text-sm text-red-700">{error}</p> : null}
+        <SiteFooter />
       </div>
     </main>
   );

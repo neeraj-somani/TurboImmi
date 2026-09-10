@@ -100,6 +100,6 @@ H-1B path + thin AI prefill (passport + offer letter) + short intent interview +
 
 ## Next implementation gate
 
-1. Day 0–3 live (hello path + profile/case APIs + role chooser). Optional leftover: local Python 3.12. CI/tag wait on a public commit.
-2. Day 4: landing polish, disclaimer gate, placeholder ToS + Privacy, dual dashboards.
+1. Day 0–5 implemented and deployed (hello path live; role/profile APIs; disclaimer gate + draft ToS/Privacy; thin prefill confirm-before-write). Local Python 3.12 not required. CI/tag wait on merging the public branch.
+2. Day 6: short H-1B intent interview.
 3. Follow the **local** implementation plan (day-by-day) incl. its daily ritual.
