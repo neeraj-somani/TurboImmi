@@ -56,6 +56,21 @@ def _github_repo() -> str:
     ).strip()
 
 
+def _github_oidc_subs(repo: str) -> list[str]:
+    """Trust main from this repo under both GitHub OIDC subject formats.
+
+    Repos created after 2026-07-15 send immutable owner/repo IDs:
+    repo:owner@id/name@id:ref:refs/heads/main
+    Older repos still send repo:owner/name:ref:refs/heads/main
+    """
+    repo = repo.strip()
+    owner, sep, name = repo.partition("/")
+    subs = [f"repo:{repo}:ref:refs/heads/main"]
+    if sep and owner and name:
+        subs.append(f"repo:{owner}@*/{name}@*:ref:refs/heads/main")
+    return subs
+
+
 class TurboImmiDevStack(Stack):
     def __init__(
         self,
@@ -497,7 +512,7 @@ class TurboImmiDevStack(Stack):
                         "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
                     },
                     "StringLike": {
-                        "token.actions.githubusercontent.com:sub": f"repo:{repo}:ref:refs/heads/main",
+                        "token.actions.githubusercontent.com:sub": _github_oidc_subs(repo),
                     },
                 },
             ),

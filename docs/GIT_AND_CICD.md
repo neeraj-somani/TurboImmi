@@ -1,6 +1,6 @@
 # TurboImmi — Git & CI/CD (DevOps)
 
-> **Status: LOCKED** (2026-09-07; IaC-first + no secrets/PII in git, local ADR 012; CD Day 13 per ADR 016)  
+> **Status: LOCKED** (2026-09-07; IaC-first + no secrets/PII in git, local ADR 012; CD Day 13 per ADR 016; GitHub OIDC `sub` formats per local ADR 018)  
 > Solo P0 practices. **CI checks from Day 2; CD (deploy) from Day 13.**  
 > **Auth:** GitHub OIDC → AWS (no long-lived keys).
 
@@ -47,7 +47,7 @@ Protect `main`: require PR + green **`checks`** before merge (enable in the GitH
 | Trigger | Actions |
 |---------|---------|
 | PR → `main` (**Day 2+**) | `pytest`, `npm run build`, `cdk synth` — **block merge on failure** |
-| Push/merge to `main` (**Day 13+**) | After `checks`: assume `AWS_DEPLOY_ROLE_ARN` (OIDC) → CDK deploy → `s3 sync` (keep `config.json`) → CloudFront invalidation. Workflow file uses secret **names** only |
+| Push/merge to `main` (**Day 13+**) | After `checks`: assume `AWS_DEPLOY_ROLE_ARN` (OIDC) → CDK deploy → `s3 sync` (keep `config.json`) → CloudFront invalidation. Workflow file uses secret **names** only. The deploy role trusts this repo’s `main` under both GitHub OIDC `sub` shapes (name-only and `owner@id/repo@id`; local ADR 018) |
 | Secrets | **GitHub OIDC → AWS**; no long-lived keys in repo |
 | Environments | One env P0 (`dev`); add `prod` later with same branch rules |
 
