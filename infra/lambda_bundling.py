@@ -44,4 +44,7 @@ class LambdaLocalBundling:
         shared = out / "shared"
         shared.mkdir(parents=True, exist_ok=True)
         shutil.copy2(REPO / "shared" / "disclaimer.json", shared / "disclaimer.json")
+        policy_src = REPO / "shared" / "policy"
+        if policy_src.is_dir():
+            shutil.copytree(policy_src, shared / "policy", dirs_exist_ok=True)
         return True

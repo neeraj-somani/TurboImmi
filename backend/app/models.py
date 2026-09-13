@@ -59,6 +59,17 @@ class PatchCaseBody(BaseModel):
     formFields: dict[str, Any] | None = Field(default=None)
 
 
+class ScoreBody(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    explain: bool = False
+
+
+class AttestationBody(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    accepted: bool
+    text: str
+
+
 class UploadUrlBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     docType: Literal["passport", "offer_letter"]
@@ -75,3 +86,37 @@ class ConfirmPrefillBody(BaseModel):
     model_config = ConfigDict(extra="ignore")
     jobId: str
     fields: ProfileBody
+
+
+class AttorneyBody(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    displayName: str
+    firmName: str | None = None
+    usState: str
+    specialties: list[str] = Field(default_factory=list)
+    bio: str | None = None
+
+
+class ConsultBody(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    attorneyId: str
+    caseId: str | None = None
+    message: str
+
+
+class AdminProfileBody(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    displayName: str
+
+
+class AdminAttorneyPatch(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    published: bool | None = None
+    verified: bool | None = None
+    flag: str | None = None
+    flagNote: str | None = None
+
+
+class ChatBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    message: str

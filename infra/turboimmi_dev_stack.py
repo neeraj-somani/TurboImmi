@@ -48,6 +48,14 @@ def _cognito_prefix() -> str:
     return prefix or "turboimmi-dev"
 
 
+def _github_repo() -> str:
+    return (
+        os.environ.get("GITHUB_REPOSITORY")
+        or os.environ.get("GITHUB_REPO")
+        or "example/turboimmi"
+    ).strip()
+
+
 class TurboImmiDevStack(Stack):
     def __init__(
         self,
@@ -70,6 +78,7 @@ class TurboImmiDevStack(Stack):
         tables = self._tables()
         api = self._api(pool, client, distribution, tables, docs_bucket, cf_https)
         self._spa_deploy(web_bucket, distribution, api, pool, client)
+        deploy_role = self._github_oidc(web_bucket)
 
         CfnOutput(self, "CloudFrontUrl", value=f"https://{distribution.distribution_domain_name}")
         CfnOutput(self, "ApiUrl", value=api.api_endpoint)
@@ -78,6 +87,8 @@ class TurboImmiDevStack(Stack):
         CfnOutput(self, "CognitoDomain", value=self._hosted_ui_url())
         CfnOutput(self, "WebBucketName", value=web_bucket.bucket_name)
         CfnOutput(self, "DocsBucketName", value=docs_bucket.bucket_name)
+        CfnOutput(self, "DistributionId", value=distribution.distribution_id)
+        CfnOutput(self, "GitHubDeployRoleArn", value=deploy_role.role_arn)
 
     def _hosted_ui_url(self) -> str:
         return f"https://{_cognito_prefix()}.auth.{self.region}.amazoncognito.com"
@@ -141,6 +152,9 @@ class TurboImmiDevStack(Stack):
         )
         cognito.CfnUserPoolGroup(
             self, "AttorneyGroup", user_pool_id=pool.user_pool_id, group_name="Attorney"
+        )
+        cognito.CfnUserPoolGroup(
+            self, "AdminGroup", user_pool_id=pool.user_pool_id, group_name="Admin"
         )
         hosted_domain = pool.add_domain(
             "HostedUi",
@@ -316,6 +330,9 @@ class TurboImmiDevStack(Stack):
                 "AUDIT_TABLE": tables["audit"].table_name,
                 "DOCS_BUCKET": docs_bucket.bucket_name,
                 "BEDROCK_VISION_MODEL_ID": os.environ.get("BEDROCK_VISION_MODEL_ID", ""),
+                "BEDROCK_CHAT_MODEL_ID": os.environ.get("BEDROCK_CHAT_MODEL_ID", ""),
+                "BEDROCK_EMBED_MODEL_ID": os.environ.get("BEDROCK_EMBED_MODEL_ID", ""),
+                "ADMIN_ALLOWLIST_EMAIL": os.environ.get("ADMIN_ALLOWLIST_EMAIL", ""),
             },
             code=lambda_.Code.from_asset(
                 str(REPO),
@@ -340,8 +357,9 @@ class TurboImmiDevStack(Stack):
                         "-c",
                         "pip install -r backend/requirements-lambda.txt -t /asset-output && "
                         "cp -R backend/app /asset-output/app && "
-                        "mkdir -p /asset-output/shared && "
-                        "cp shared/disclaimer.json /asset-output/shared/disclaimer.json",
+                        "mkdir -p /asset-output/shared/policy && "
+                        "cp shared/disclaimer.json /asset-output/shared/disclaimer.json && "
+                        "cp -R shared/policy /asset-output/shared/policy",
                     ],
                 ),
             ),
@@ -458,3 +476,71 @@ class TurboImmiDevStack(Stack):
                 ),
             ],
         )
+
+    def _github_oidc(self, web_bucket: s3.Bucket) -> iam.Role:
+        repo = _github_repo()
+        provider = iam.OpenIdConnectProvider(
+            self,
+            "GitHubOidc",
+            url="https://token.actions.githubusercontent.com",
+            client_ids=["sts.amazonaws.com"],
+        )
+        role = iam.Role(
+            self,
+            "GitHubDeployRole",
+            role_name="turboimmi-dev-github-deploy",
+            description="GitHub Actions OIDC deploy from main. No long-lived keys.",
+            assumed_by=iam.OpenIdConnectPrincipal(
+                provider,
+                conditions={
+                    "StringEquals": {
+                        "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+                    },
+                    "StringLike": {
+                        "token.actions.githubusercontent.com:sub": f"repo:{repo}:ref:refs/heads/main",
+                    },
+                },
+            ),
+        )
+        account = self.account
+        region = self.region
+        qualifier = "hnb659fds"
+        role.add_to_policy(
+            iam.PolicyStatement(
+                sid="AssumeCdkBootstrap",
+                actions=["sts:AssumeRole"],
+                resources=[
+                    f"arn:aws:iam::{account}:role/cdk-{qualifier}-deploy-role-{account}-{region}",
+                    f"arn:aws:iam::{account}:role/cdk-{qualifier}-file-publishing-role-{account}-{region}",
+                    f"arn:aws:iam::{account}:role/cdk-{qualifier}-image-publishing-role-{account}-{region}",
+                    f"arn:aws:iam::{account}:role/cdk-{qualifier}-lookup-role-{account}-{region}",
+                ],
+            )
+        )
+        role.add_to_policy(
+            iam.PolicyStatement(
+                sid="ReadStackOutputs",
+                actions=["cloudformation:DescribeStacks", "cloudformation:ListStacks"],
+                resources=["*"],
+            )
+        )
+        role.add_to_policy(
+            iam.PolicyStatement(
+                sid="SyncSpa",
+                actions=[
+                    "s3:ListBucket",
+                    "s3:GetObject",
+                    "s3:PutObject",
+                    "s3:DeleteObject",
+                ],
+                resources=[web_bucket.bucket_arn, f"{web_bucket.bucket_arn}/*"],
+            )
+        )
+        role.add_to_policy(
+            iam.PolicyStatement(
+                sid="InvalidateSpa",
+                actions=["cloudfront:CreateInvalidation", "cloudfront:GetInvalidation"],
+                resources=["*"],
+            )
+        )
+        return role

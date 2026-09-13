@@ -1,0 +1,35 @@
+{
+  "id": "turboimmi-official-links-p0",
+  "version": 1,
+  "note": "Follow official USCIS channels. Not an endorsement. No seals or logos. TurboImmi does not scrape X.",
+  "links": [
+    {
+      "title": "USCIS Newsroom",
+      "url": "https://www.uscis.gov/newsroom/news-releases"
+    },
+    {
+      "title": "Policy Manual updates",
+      "url": "https://www.uscis.gov/policy-manual/updates"
+    },
+    {
+      "title": "Email alerts (GovDelivery)",
+      "url": "https://public.govdelivery.com/accounts/USDHSCIS/subscriber/new"
+    },
+    {
+      "title": "USCIS social media directory",
+      "url": "https://www.uscis.gov/newsroom/social-media-directory"
+    },
+    {
+      "title": "@USCIS on X",
+      "url": "https://x.com/USCIS"
+    },
+    {
+      "title": "@uscis_es on X",
+      "url": "https://x.com/uscis_es"
+    },
+    {
+      "title": "@EVerify on X",
+      "url": "https://x.com/EVerify"
+    }
+  ]
+}

@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from typing import Any, Protocol
 from uuid import uuid4
 
-ALLOWED_ROLES = ("Applicant", "Attorney")
+ALLOWED_ROLES = ("Applicant", "Attorney", "Admin")
 JOURNEY_STAGES = (
     "f1",
     "cpt",
@@ -20,7 +20,7 @@ JOURNEY_STAGES = (
     "i140",
     "aos",
 )
-CASE_STATUSES = ("draft", "in_progress")
+CASE_STATUSES = ("draft", "in_progress", "ready_to_file")
 INTENTS = ("cap", "transfer", "extension")
 ENTRY_PATHS = ("change_of_status", "consular")
 PREFILL_STATUSES = ("uploaded", "extracted", "confirmed", "deleted")
@@ -28,6 +28,7 @@ DOC_TYPES = ("passport", "offer_letter")
 ACTIVE_UPLOAD_STATUSES = ("uploaded", "extracted")
 MAX_ACTIVE_UPLOADS = 2
 MAX_EXTRACTS_PER_UTC_DAY = 3
+MAX_CHAT_TURNS = 15
 MAX_UPLOAD_BYTES = 8 * 1024 * 1024
 ALLOWED_CONTENT_TYPES = ("image/jpeg", "image/png", "application/pdf")
 
@@ -177,6 +178,32 @@ class Store(Protocol):
 
     def put_audit(self, item: dict[str, Any]) -> None: ...
 
+    def ensure_seed_attorneys(self) -> None: ...
+
+    def list_attorneys(self, *, state: str | None = None, specialty: str | None = None) -> list[dict[str, Any]]: ...
+
+    def list_all_attorneys(self) -> list[dict[str, Any]]: ...
+
+    def get_attorney(self, attorney_id: str) -> dict[str, Any] | None: ...
+
+    def get_attorney_by_sub(self, sub: str) -> dict[str, Any] | None: ...
+
+    def put_attorney(self, item: dict[str, Any]) -> None: ...
+
+    def put_consult(self, item: dict[str, Any]) -> None: ...
+
+    def list_consults_for_attorney(self, attorney_id: str) -> list[dict[str, Any]]: ...
+
+    def list_consults_for_applicant(self, sub: str) -> list[dict[str, Any]]: ...
+
+    def list_policy_chunks(self) -> list[dict[str, Any]]: ...
+
+    def put_policy_chunk(self, item: dict[str, Any]) -> None: ...
+
+    def list_alerts(self) -> list[dict[str, Any]]: ...
+
+    def put_alert(self, item: dict[str, Any]) -> None: ...
+
 
 class MemoryStore:
     def __init__(self) -> None:
@@ -184,6 +211,13 @@ class MemoryStore:
         self._cases: dict[tuple[str, str], dict[str, Any]] = {}
         self._jobs: dict[tuple[str, str], dict[str, Any]] = {}
         self._audits: list[dict[str, Any]] = []
+        self._attorneys: dict[str, dict[str, Any]] = {}
+        self._attorney_by_sub: dict[str, str] = {}
+        self._consults: dict[tuple[str, str], dict[str, Any]] = {}
+        self._policy: dict[str, dict[str, Any]] = {}
+        self._alerts: dict[str, dict[str, Any]] = {}
+        self.ensure_seed_attorneys()
+        self.ensure_seed_alerts()
 
     def get_user(self, sub: str) -> dict[str, Any] | None:
         item = self._users.get(sub)
@@ -224,6 +258,85 @@ class MemoryStore:
     def put_audit(self, item: dict[str, Any]) -> None:
         self._audits.append(dict(item))
 
+    def ensure_seed_attorneys(self) -> None:
+        from app.attorneys import seed_attorney_items
+
+        for item in seed_attorney_items():
+            if item["attorneyId"] not in self._attorneys:
+                self.put_attorney(item)
+
+    def list_attorneys(self, *, state: str | None = None, specialty: str | None = None) -> list[dict[str, Any]]:
+        from app.attorneys import matches_filters
+
+        self.ensure_seed_attorneys()
+        rows = [dict(item) for item in self._attorneys.values() if item.get("published")]
+        rows = [item for item in rows if matches_filters(item, state, specialty)]
+        rows.sort(key=lambda row: str(row.get("displayName") or ""))
+        return rows
+
+    def list_all_attorneys(self) -> list[dict[str, Any]]:
+        self.ensure_seed_attorneys()
+        rows = [dict(item) for item in self._attorneys.values()]
+        rows.sort(key=lambda row: str(row.get("displayName") or ""))
+        return rows
+
+    def get_attorney(self, attorney_id: str) -> dict[str, Any] | None:
+        self.ensure_seed_attorneys()
+        item = self._attorneys.get(attorney_id)
+        return dict(item) if item else None
+
+    def get_attorney_by_sub(self, sub: str) -> dict[str, Any] | None:
+        attorney_id = self._attorney_by_sub.get(sub)
+        if not attorney_id:
+            return None
+        return self.get_attorney(attorney_id)
+
+    def put_attorney(self, item: dict[str, Any]) -> None:
+        attorney_id = str(item.get("attorneyId") or "")
+        self._attorneys[attorney_id] = dict(item)
+        sub = str(item.get("cognitoSub") or "")
+        if sub:
+            self._attorney_by_sub[sub] = attorney_id
+
+    def put_consult(self, item: dict[str, Any]) -> None:
+        attorney_id = str(item.get("attorneyId") or "")
+        consult_id = str(item.get("consultId") or "")
+        self._consults[(attorney_id, consult_id)] = dict(item)
+
+    def list_consults_for_attorney(self, attorney_id: str) -> list[dict[str, Any]]:
+        rows = [dict(item) for (owner, _), item in self._consults.items() if owner == attorney_id]
+        rows.sort(key=lambda row: str(row.get("createdAt") or ""), reverse=True)
+        return rows
+
+    def list_consults_for_applicant(self, sub: str) -> list[dict[str, Any]]:
+        rows = [dict(item) for item in self._consults.values() if item.get("applicantSub") == sub]
+        rows.sort(key=lambda row: str(row.get("createdAt") or ""), reverse=True)
+        return rows
+
+    def list_policy_chunks(self) -> list[dict[str, Any]]:
+        return [dict(item) for item in self._policy.values()]
+
+    def put_policy_chunk(self, item: dict[str, Any]) -> None:
+        chunk_id = str(item.get("chunkId") or "")
+        self._policy[chunk_id] = dict(item)
+
+    def ensure_seed_alerts(self) -> None:
+        from app.alerts import seed_alert_items
+
+        for item in seed_alert_items():
+            if item["alertId"] not in self._alerts:
+                self.put_alert(item)
+
+    def list_alerts(self) -> list[dict[str, Any]]:
+        self.ensure_seed_alerts()
+        rows = [dict(item) for item in self._alerts.values()]
+        rows.sort(key=lambda row: str(row.get("publishedOn") or ""), reverse=True)
+        return rows
+
+    def put_alert(self, item: dict[str, Any]) -> None:
+        alert_id = str(item.get("alertId") or "")
+        self._alerts[alert_id] = dict(item)
+
 
 class DynamoStore:
     def __init__(self) -> None:
@@ -235,8 +348,16 @@ class DynamoStore:
         self._cases = ddb.Table(os.environ["CASES_TABLE"])
         prefill = os.environ.get("PREFILL_TABLE") or "turboimmi-dev-prefill-jobs"
         audit = os.environ.get("AUDIT_TABLE") or "turboimmi-dev-ai-audit"
+        attorneys = os.environ.get("ATTORNEYS_TABLE") or "turboimmi-dev-attorneys"
+        consults = os.environ.get("CONSULTS_TABLE") or "turboimmi-dev-consults"
+        policy = os.environ.get("POLICY_TABLE") or "turboimmi-dev-policy-chunks"
+        alerts = os.environ.get("ALERTS_TABLE") or "turboimmi-dev-alerts"
         self._jobs = ddb.Table(prefill)
         self._audit = ddb.Table(audit)
+        self._attorneys = ddb.Table(attorneys)
+        self._consults = ddb.Table(consults)
+        self._policy = ddb.Table(policy)
+        self._alerts = ddb.Table(alerts)
 
     def get_user(self, sub: str) -> dict[str, Any] | None:
         resp = self._users.get_item(Key={"pk": user_pk(sub), "sk": "PROFILE"})
@@ -284,6 +405,149 @@ class DynamoStore:
 
     def put_audit(self, item: dict[str, Any]) -> None:
         self._audit.put_item(Item=drop_none(item))
+
+    def ensure_seed_attorneys(self) -> None:
+        from app.attorneys import attorney_pk, seed_attorney_items
+
+        for item in seed_attorney_items():
+            existing = self._attorneys.get_item(Key={"pk": attorney_pk(item["attorneyId"]), "sk": "PROFILE"})
+            if not existing.get("Item"):
+                self.put_attorney(item)
+
+    def list_attorneys(self, *, state: str | None = None, specialty: str | None = None) -> list[dict[str, Any]]:
+        from boto3.dynamodb.conditions import Key
+
+        from app.attorneys import matches_filters, normalize_state
+
+        self.ensure_seed_attorneys()
+        if state:
+            resp = self._attorneys.query(
+                IndexName="gsi1",
+                KeyConditionExpression=Key("gsi1pk").eq(f"STATE#{normalize_state(state)}"),
+            )
+            rows = [dict(item) for item in resp.get("Items") or [] if item.get("sk") == "PROFILE"]
+        else:
+            rows = []
+            scan = self._attorneys.scan()
+            rows.extend(dict(item) for item in scan.get("Items") or [] if item.get("sk") == "PROFILE")
+            while scan.get("LastEvaluatedKey"):
+                scan = self._attorneys.scan(ExclusiveStartKey=scan["LastEvaluatedKey"])
+                rows.extend(dict(item) for item in scan.get("Items") or [] if item.get("sk") == "PROFILE")
+        rows = [item for item in rows if item.get("published") and matches_filters(item, state, specialty)]
+        rows.sort(key=lambda row: str(row.get("displayName") or ""))
+        return rows
+
+    def list_all_attorneys(self) -> list[dict[str, Any]]:
+        self.ensure_seed_attorneys()
+        rows: list[dict[str, Any]] = []
+        scan = self._attorneys.scan()
+        rows.extend(dict(item) for item in scan.get("Items") or [] if item.get("sk") == "PROFILE")
+        while scan.get("LastEvaluatedKey"):
+            scan = self._attorneys.scan(ExclusiveStartKey=scan["LastEvaluatedKey"])
+            rows.extend(dict(item) for item in scan.get("Items") or [] if item.get("sk") == "PROFILE")
+        rows.sort(key=lambda row: str(row.get("displayName") or ""))
+        return rows
+
+    def get_attorney(self, attorney_id: str) -> dict[str, Any] | None:
+        from app.attorneys import attorney_pk
+
+        self.ensure_seed_attorneys()
+        resp = self._attorneys.get_item(Key={"pk": attorney_pk(attorney_id), "sk": "PROFILE"})
+        item = resp.get("Item")
+        return dict(item) if item else None
+
+    def get_attorney_by_sub(self, sub: str) -> dict[str, Any] | None:
+        resp = self._attorneys.get_item(Key={"pk": user_pk(sub), "sk": "ATTORNEY_LINK"})
+        link = resp.get("Item")
+        if not link:
+            return None
+        return self.get_attorney(str(link.get("attorneyId") or ""))
+
+    def put_attorney(self, item: dict[str, Any]) -> None:
+        self._attorneys.put_item(Item=drop_none(item))
+        sub = str(item.get("cognitoSub") or "")
+        if sub:
+            self._attorneys.put_item(
+                Item=drop_none(
+                    {
+                        "pk": user_pk(sub),
+                        "sk": "ATTORNEY_LINK",
+                        "attorneyId": item.get("attorneyId"),
+                    }
+                )
+            )
+
+    def put_consult(self, item: dict[str, Any]) -> None:
+        self._consults.put_item(Item=drop_none(item))
+
+    def list_consults_for_attorney(self, attorney_id: str) -> list[dict[str, Any]]:
+        from boto3.dynamodb.conditions import Key
+
+        from app.attorneys import attorney_pk
+
+        resp = self._consults.query(
+            KeyConditionExpression=Key("pk").eq(attorney_pk(attorney_id)) & Key("sk").begins_with("CONSULT#")
+        )
+        rows = [dict(item) for item in resp.get("Items") or []]
+        rows.sort(key=lambda row: str(row.get("createdAt") or ""), reverse=True)
+        return rows
+
+    def list_consults_for_applicant(self, sub: str) -> list[dict[str, Any]]:
+        from boto3.dynamodb.conditions import Key
+
+        resp = self._consults.query(
+            IndexName="gsi1",
+            KeyConditionExpression=Key("gsi1pk").eq(user_pk(sub)),
+        )
+        rows = [dict(item) for item in resp.get("Items") or []]
+        rows.sort(key=lambda row: str(row.get("createdAt") or ""), reverse=True)
+        return rows
+
+    def list_policy_chunks(self) -> list[dict[str, Any]]:
+        rows: list[dict[str, Any]] = []
+        scan = self._policy.scan()
+        rows.extend(dict(item) for item in scan.get("Items") or [] if item.get("sk") == "META")
+        while scan.get("LastEvaluatedKey"):
+            scan = self._policy.scan(ExclusiveStartKey=scan["LastEvaluatedKey"])
+            rows.extend(dict(item) for item in scan.get("Items") or [] if item.get("sk") == "META")
+        return rows
+
+    def put_policy_chunk(self, item: dict[str, Any]) -> None:
+        from decimal import Decimal
+
+        payload = dict(item)
+        embedding = payload.get("embedding")
+        if isinstance(embedding, list):
+            payload["embedding"] = [Decimal(str(value)) for value in embedding]
+        self._policy.put_item(Item=drop_none(payload))
+
+    def ensure_seed_alerts(self) -> None:
+        from app.alerts import alert_pk, seed_alert_items
+
+        for item in seed_alert_items():
+            existing = self._alerts.get_item(Key={"pk": alert_pk(), "sk": item["sk"]})
+            if not existing.get("Item"):
+                self.put_alert(item)
+
+    def list_alerts(self) -> list[dict[str, Any]]:
+        from boto3.dynamodb.conditions import Key
+
+        from app.alerts import alert_pk
+
+        self.ensure_seed_alerts()
+        resp = self._alerts.query(KeyConditionExpression=Key("pk").eq(alert_pk()))
+        rows = [dict(item) for item in resp.get("Items") or []]
+        while resp.get("LastEvaluatedKey"):
+            resp = self._alerts.query(
+                KeyConditionExpression=Key("pk").eq(alert_pk()),
+                ExclusiveStartKey=resp["LastEvaluatedKey"],
+            )
+            rows.extend(dict(item) for item in resp.get("Items") or [])
+        rows.sort(key=lambda row: str(row.get("publishedOn") or ""), reverse=True)
+        return rows
+
+    def put_alert(self, item: dict[str, Any]) -> None:
+        self._alerts.put_item(Item=drop_none(item))
 
 
 def get_store() -> Store:

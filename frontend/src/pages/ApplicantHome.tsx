@@ -1,13 +1,17 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
-import { apiJson, type CaseRecord, type ProfileResponse } from "../api";
+import { apiJson, homePath, type CaseRecord, type ProfileResponse } from "../api";
 import { startHostedUiLogout } from "../auth";
-import AttorneyReviewAttestation from "../components/AttorneyReviewAttestation";
+import FormPacket from "../components/FormPacket";
+import IntentInterview from "../components/IntentInterview";
+import AttorneyDirectory from "../components/AttorneyDirectory";
+import NewsCards from "../components/NewsCards";
+import PolicyChat from "../components/PolicyChat";
+import ScorePanel from "../components/ScorePanel";
+import JourneyMap, { JOURNEY_LABELS, JOURNEY_STAGES } from "../components/JourneyMap";
 import SiteFooter from "../components/SiteFooter";
 import PrefillPanel from "../components/PrefillPanel";
 import { useSpa } from "../spa";
-
-const STAGES = ["f1", "cpt", "opt", "stem_opt", "h1b", "h4", "h4_ead", "perm", "i140", "aos"] as const;
 
 export default function ApplicantHome() {
   const { config, me, signedIn } = useSpa();
@@ -18,7 +22,6 @@ export default function ApplicantHome() {
   const [status, setStatus] = useState("");
   const [stage, setStage] = useState("h1b");
   const [cases, setCases] = useState<CaseRecord[]>([]);
-  const [attested, setAttested] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,7 +62,7 @@ export default function ApplicantHome() {
     return <Navigate to="/choose-role" replace />;
   }
   if (me.role !== "Applicant") {
-    return <Navigate to="/attorney" replace />;
+    return <Navigate to={homePath(me)} replace />;
   }
 
   async function onSave(event: FormEvent) {
@@ -76,6 +79,8 @@ export default function ApplicantHome() {
           journeyStage: stage,
         }),
       });
+      const listed = await apiJson<{ cases: CaseRecord[] }>(config, "/cases");
+      setCases(listed.cases);
       setMessage("Profile saved.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save profile");
@@ -117,7 +122,7 @@ export default function ApplicantHome() {
           Educational only. A licensed attorney must review before filing. Completeness is not
           approval odds.
         </p>
-        <ul className="mt-6 grid gap-3 sm:grid-cols-3">
+        <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <li className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
             <p className="font-medium">Profile</p>
             <p className="mt-1 text-slate-600">Save names and job facts below.</p>
@@ -126,11 +131,24 @@ export default function ApplicantHome() {
             <p className="font-medium">Documents</p>
             <p className="mt-1 text-slate-600">Optional confirm-before-save prefill.</p>
           </li>
-          <li className="rounded-lg border border-dashed border-slate-300 p-3 text-sm text-slate-600">
-            <p className="font-medium text-slate-800">Attorneys</p>
-            <p className="mt-1">Directory and consult request come later.</p>
+          <li className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
+            <p className="font-medium">Interview</p>
+            <p className="mt-1 text-slate-600">Cap, transfer, or extension.</p>
+          </li>
+          <li className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
+            <p className="font-medium">Packet</p>
+            <p className="mt-1 text-slate-600">Review mapped I-129 / H-style fields.</p>
+          </li>
+          <li className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
+            <p className="font-medium">Score</p>
+            <p className="mt-1 text-slate-600">Completeness and consistency, not approval odds.</p>
+          </li>
+          <li className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
+            <p className="font-medium">Attorneys</p>
+            <p className="mt-1 text-slate-600">Published listings only. Request consult is in-app.</p>
           </li>
         </ul>
+        <JourneyMap stage={stage} />
         <PrefillPanel
           config={config}
           onApplied={(profile) => {
@@ -176,9 +194,9 @@ export default function ApplicantHome() {
               value={stage}
               onChange={(event) => setStage(event.target.value)}
             >
-              {STAGES.map((value) => (
+              {JOURNEY_STAGES.map((value) => (
                 <option key={value} value={value}>
-                  {value}
+                  {JOURNEY_LABELS[value]}
                 </option>
               ))}
             </select>
@@ -203,6 +221,36 @@ export default function ApplicantHome() {
             Save profile
           </button>
         </form>
+        <IntentInterview
+          config={config}
+          cases={cases}
+          onSaved={(updated) => {
+            setCases((current) => current.map((item) => (item.caseId === updated.caseId ? updated : item)));
+          }}
+          onMessage={setMessage}
+          onError={setError}
+        />
+        <FormPacket
+          config={config}
+          cases={cases}
+          onSaved={(updated) => {
+            setCases((current) => current.map((item) => (item.caseId === updated.caseId ? updated : item)));
+          }}
+          onMessage={setMessage}
+          onError={setError}
+        />
+        <ScorePanel
+          config={config}
+          cases={cases}
+          onSaved={(updated) => {
+            setCases((current) => current.map((item) => (item.caseId === updated.caseId ? updated : item)));
+          }}
+          onMessage={setMessage}
+          onError={setError}
+        />
+        <PolicyChat config={config} onMessage={setMessage} onError={setError} />
+        <AttorneyDirectory config={config} cases={cases} onMessage={setMessage} onError={setError} />
+        <NewsCards config={config} onError={setError} />
         <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5">
           <div className="flex items-center justify-between">
             <p className="font-medium">H-1B cases</p>
@@ -222,18 +270,15 @@ export default function ApplicantHome() {
                 <li key={item.caseId} className="rounded-md bg-slate-50 px-3 py-2">
                   <span className="font-medium">{item.visaClass}</span> · {item.status}
                   {item.intent ? ` · ${item.intent}` : ""}
+                  {item.entryPath ? ` · ${item.entryPath}` : ""}
+                  {item.score
+                    ? ` · ${item.score.completeness}% complete / ${item.score.consistency}% consistent`
+                    : ""}
                 </li>
               ))}
             </ul>
           )}
         </section>
-        <div className="mt-8">
-          <AttorneyReviewAttestation
-            checked={attested}
-            onChange={setAttested}
-            note="Practice checkbox for the later ready-to-file gate. It does not file anything and is not stored on the server yet."
-          />
-        </div>
         {message ? <p className="mt-4 text-sm text-emerald-800">{message}</p> : null}
         {error ? <p className="mt-4 text-sm text-red-700">{error}</p> : null}
         <SiteFooter />

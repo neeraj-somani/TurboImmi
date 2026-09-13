@@ -9,6 +9,7 @@ import {
   type SpaConfig,
 } from "./auth";
 import { isDisclaimerAccepted, isLegalPath } from "./disclaimerAck";
+import AdminHome from "./pages/AdminHome";
 import ApplicantHome from "./pages/ApplicantHome";
 import AttorneyHome from "./pages/AttorneyHome";
 import DisclaimerGate from "./pages/DisclaimerGate";
@@ -113,6 +114,7 @@ export default function App() {
         <Route path="/choose-role" element={<RoleChooser />} />
         <Route path="/app" element={<ApplicantHome />} />
         <Route path="/attorney" element={<AttorneyHome />} />
+        <Route path="/admin" element={<AdminHome />} />
         <Route
           path="*"
           element={<Navigate to={signedIn && me ? homePath(me) : "/"} replace />}

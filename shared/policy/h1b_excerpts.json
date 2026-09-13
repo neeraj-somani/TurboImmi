@@ -1,0 +1,40 @@
+{
+  "id": "turboimmi-h1b-excerpts-p0",
+  "version": 1,
+  "as_of": "2026-09-10",
+  "note": "Short public USCIS excerpts with attribution. Not legal advice. Not USCIS or DHS endorsement. Day 12 chat retrieves over these chunks (citation-or-silence).",
+  "chunks": [
+    {
+      "id": "h1b-program",
+      "title": "H-1B Cap Season \u2014 The H-1B Program",
+      "source_url": "https://www.uscis.gov/working-in-the-united-states/temporary-workers/h-1b-specialty-occupations/h-1b-cap-season",
+      "retrieved_at": "2026-09-10",
+      "content_hash": "6d793acc5ca6f75dd9628752bb9595cb1d9b5eeb2f291b1900eb24a11af9b2aa",
+      "text": "The H-1B program allows companies and other employers in the United States to temporarily employ foreign workers in occupations that require the theoretical and practical application of a body of highly specialized knowledge and a bachelor\u2019s degree or higher in a directly related specific specialty (or its equivalent) as a minimum for entry into the occupation in the United States."
+    },
+    {
+      "id": "h1b-regular-cap",
+      "title": "H-1B Cap Season \u2014 The H-1B Cap",
+      "source_url": "https://www.uscis.gov/working-in-the-united-states/temporary-workers/h-1b-specialty-occupations/h-1b-cap-season",
+      "retrieved_at": "2026-09-10",
+      "content_hash": "69704a1d044fcb58138da8d2378bbd3201e582fb81c7e5b9401d2049371c5671",
+      "text": "Congress set the current annual regular cap for the H-1B category at 65,000 (commonly known as the \u201cregular cap\u201d). An additional 20,000 petitions filed on behalf of beneficiaries who have earned a master\u2019s degree or higher from a U.S. institution of higher education are exempt from the cap. Not all H-1B nonimmigrant visas (or status grants) are subject to this annual cap (for example, petitions filed by U.S. institutions of higher education are cap exempt)."
+    },
+    {
+      "id": "h1b-registration",
+      "title": "H-1B Specialty Occupations \u2014 Electronic Registration Process",
+      "source_url": "https://www.uscis.gov/working-in-the-united-states/h-1b-specialty-occupations",
+      "retrieved_at": "2026-09-10",
+      "content_hash": "1a9ffaf445fd36449e0a7178873bbb160c3e63751e10dfa8dbe8bd8ad5d5839a",
+      "text": "In 2020, we implemented an electronic registration process for the H-1B cap. We will not consider a cap-subject H-1B petition to be properly filed unless it is based on a valid, selected registration for the same beneficiary and the appropriate fiscal year, unless the registration requirement is suspended."
+    },
+    {
+      "id": "h1b-lca",
+      "title": "H-1B Specialty Occupations \u2014 Labor Condition Application",
+      "source_url": "https://www.uscis.gov/working-in-the-united-states/h-1b-specialty-occupations",
+      "retrieved_at": "2026-09-10",
+      "content_hash": "1496a0db4e64a08770d53aaf8013dc2effbd1796b7d3d34bbec8552ae11a9b3b",
+      "text": "Prospective specialty occupation and distinguished fashion model employers or agents must obtain a certification of an LCA from the DOL. The prospective petitioner must include evidence that a Form ETA-9035/9035E, Labor Condition Application (LCA) has been certified by the Department of Labor (DOL), with Form I-129, Petition for a Nonimmigrant Worker."
+    }
+  ]
+}

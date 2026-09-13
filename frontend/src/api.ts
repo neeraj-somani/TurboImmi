@@ -7,12 +7,12 @@ export type Me = {
   email?: string | null;
   groups: string[];
   roleChosen: boolean;
-  role: "Applicant" | "Attorney" | null;
+  role: "Applicant" | "Attorney" | "Admin" | null;
 };
 
 export type ProfileResponse = {
   roleChosen: boolean;
-  role: "Applicant" | "Attorney" | null;
+  role: "Applicant" | "Attorney" | "Admin" | null;
   profile: {
     legalName?: { given?: string; family?: string };
     email?: string;
@@ -30,12 +30,65 @@ export type ProfileResponse = {
   };
 };
 
+export type PacketFields = {
+  petitionerLegalName?: string;
+  petitionerUsAddress?: string;
+  petitionerFein?: string;
+  petitionerOrgType?: string;
+  beneficiaryGiven?: string;
+  beneficiaryFamily?: string;
+  beneficiaryDateOfBirth?: string;
+  beneficiaryCountryOfBirth?: string;
+  beneficiaryCitizenship?: string;
+  beneficiaryPassportNumber?: string;
+  beneficiaryPassportExpiry?: string;
+  beneficiaryAlienNumber?: string;
+  intent?: string;
+  entryPath?: string;
+  capExemptClaim?: boolean;
+  jobTitle?: string;
+  socCode?: string;
+  wageAmount?: string;
+  wageUnit?: string;
+  hoursPerWeek?: string;
+  worksiteAddress?: string;
+  lcaEtaNumber?: string;
+  requestedStart?: string;
+  requestedEnd?: string;
+  offsiteItinerary?: boolean;
+  evidencePassport?: boolean;
+  evidenceOfferLetter?: boolean;
+  evidenceLca?: boolean;
+};
+
+export type ScoreDeduction = {
+  id: string;
+  kind: string;
+  severity: string;
+  message: string;
+};
+
+export type CaseScore = {
+  completeness: number;
+  consistency: number;
+  deductions: ScoreDeduction[];
+  scoredAt?: string;
+  explanation?: string;
+};
+
 export type CaseRecord = {
   caseId: string;
   visaClass: string;
   status: string;
   intent?: string;
   entryPath?: string;
+  capExemptClaim?: boolean;
+  requestedStart?: string;
+  requestedEnd?: string;
+  formFields?: Record<string, string | boolean>;
+  packet?: PacketFields;
+  score?: CaseScore;
+  attestationAcceptedAt?: string;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -86,9 +139,67 @@ export async function apiJson<T>(config: SpaConfig, path: string, init?: Request
   return body as T;
 }
 
+export type AttorneyRecord = {
+  attorneyId: string;
+  displayName: string;
+  firmName: string;
+  usState: string;
+  specialties: string[];
+  bio: string;
+  published: boolean;
+  verified: boolean;
+  flag?: string;
+  flagNote?: string;
+  checks?: { ok: boolean; missing: string[] };
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type AdminProfile = {
+  displayName: string;
+  updatedAt?: string;
+};
+
+export type AlertRecord = {
+  alertId: string;
+  title: string;
+  sourceUrl: string;
+  publishedOn: string;
+  tag: string;
+  summary: string;
+};
+
+export type PolicyCitation = {
+  title: string;
+  source_url: string;
+  retrieved_at: string;
+};
+
+export type ChatResponse = {
+  answer: string;
+  refused: boolean;
+  citations: PolicyCitation[];
+  remaining: number;
+};
+
+export type ConsultRecord = {
+  consultId: string;
+  attorneyId: string;
+  applicantSub?: string;
+  caseId?: string | null;
+  message: string;
+  status: string;
+  createdAt?: string;
+  attorneyDisplayName?: string;
+  applicantDisplayName?: string;
+};
+
 export function homePath(me: Me): string {
   if (!me.roleChosen || !me.role) {
     return "/choose-role";
+  }
+  if (me.role === "Admin") {
+    return "/admin";
   }
   return me.role === "Attorney" ? "/attorney" : "/app";
 }
