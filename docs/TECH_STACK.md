@@ -1,6 +1,6 @@
 # TurboImmi — Tech Stack (P0)
 
-> Last updated: 2026-09-08  
+> Last updated: 2026-09-10 (ADR 016: Cognito `Admin` + `/admin` desk; CD Day 13)  
 > **Status: LOCKED for P0** (confirmed by product owner; region **`us-east-2`**, ADR 011)  
 > Audience skills: Python, SQL, Spark, AWS, Databricks  
 > Goal: cost-effective, serverless-first, agentic on AWS in ~2 weeks (solo)
@@ -31,7 +31,7 @@
 | **Frontend** | **React 18 + TypeScript + Vite** | Fast SPA, huge ecosystem, static export to S3; lighter than Next for your model |
 | **UI kit** | Tailwind CSS + headless components (e.g. Radix) | Speed without heavy design system |
 | **Hosting** | **S3 + CloudFront** (+ optional Route 53) | Matches your plan; low cost |
-| **Auth** | **Amazon Cognito** User Pool | Groups: `Applicant`, `Attorney`; Hosted UI in P0 |
+| **Auth** | **Amazon Cognito** User Pool | Groups: `Applicant`, `Attorney`, `Admin`; Hosted UI in P0. Admin is allowlist-grant, not a chooser button (ADR 016) |
 | **API** | **API Gateway HTTP API** + **Python 3.12 Lambda** | Pay-per-use |
 | **API style** | **FastAPI** behind Lambda ([Mangum](https://mangum.io/)) | OpenAPI + clear routers; no thin-handler alternative in P0 |
 | **Database** | **DynamoDB** (on-demand, **PITR on**), **few tables** | Serverless; access-pattern keys per table (see [API_AND_DATA.md](API_AND_DATA.md) on Day 1) |
@@ -105,7 +105,7 @@ flowchart TB
 
 **Request split (important for 2 weeks):**
 
-1. **Deterministic APIs (Lambda/FastAPI):** profile CRUD, attorney directory, consult requests, validation score, news list, presigned upload, confirm-prefill write.
+1. **Deterministic APIs (Lambda/FastAPI):** profile CRUD, attorney directory, Admin publish/flag, consult requests, validation score, news list, presigned upload, confirm-prefill write.
 2. **Bedrock Converse:** doc extraction suggestions, cited policy chat, “explain this validation failure.”
 3. Extract / chat **never silently write** profile fields — only the confirm API persists after user approval.
 
@@ -124,6 +124,7 @@ flowchart TB
 - `/` marketing landing (static)
 - `/app/*` applicant flows (prefill, interview, score, chat, attorneys)
 - `/attorney/*` attorney profile + consult inbox
+- `/admin` verification desk (allowlisted Admin only)
 - Shared disclaimer banner + attorney-review gates
 
 **Auth UX:** Cognito Hosted UI is fastest for P0; custom login screens later.
@@ -163,11 +164,12 @@ Store journey stage enums on profile JSON for F-1→EB even if UI is H-1B-only.
 ## Cognito
 
 - App client for SPA (public client + PKCE); Hosted UI with a unique domain prefix (Day 0)
-- Groups: `Applicant`, `Attorney`
-- **Role assignment (P0):** Hosted UI has no role picker. After first login, if the JWT has no group → in-app chooser → `POST /me/role` → Lambda `AdminAddUserToGroup` → client **forces token refresh** → role-based redirect
-- **Role lock:** after the first successful choose, **no self-switch** Applicant ↔ Attorney
+- Groups: `Applicant`, `Attorney`, `Admin`
+- **Role assignment (P0):** Hosted UI has no role picker. After first login, if the JWT has no group → in-app chooser (**Applicant / Attorney only**) → `POST /me/role` → Lambda `AdminAddUserToGroup` → client **forces token refresh** → role-based redirect
+- **Admin grant:** `ADMIN_ALLOWLIST_EMAIL` compared on `GET /me`; then `AdminAddUserToGroup(Admin)`. Never offer Admin on the chooser. Do not create the user in the Cognito console
+- **Role lock:** after the first successful choose, **no self-switch** Applicant ↔ Attorney. An address that already chose is not promoted to Admin
 - API Gateway JWT authorizer; Lambda checks `cognito:groups` for route guards
-- **Attorney directory is authenticated-only in P0.** Profiles default `published=false`, `verified=false`; UI shows “Unverified”; only seeded demo attorneys are published
+- **Attorney directory is authenticated-only in P0.** Profiles default `published=false`, `verified=false`; UI shows “Unverified”; seeded demo attorneys start published; Admin publishes or flags after basic field checks (not a bar lookup)
 - Cognito **default email** (no SES) is enough for P0; watch the daily send cap
 
 ---
@@ -195,7 +197,7 @@ backend/        # FastAPI / Lambda handlers, rules
 frontend/       # Vite React app
 shared/         # disclaimer.json
 docs/           # public stack, setup, API, git docs
-.github/workflows/ci.yml   # checks from Day 2; deploy job from Day 12
+.github/workflows/ci.yml   # checks from Day 2; deploy job from Day 13
 .github/pull_request_template.md  # public docs-sync checklist
 ```
 
@@ -204,7 +206,7 @@ docs/           # public stack, setup, API, git docs
 **Pipelines** (see [GIT_AND_CICD.md](GIT_AND_CICD.md)):
 
 1. **CI (Day 2+):** pytest → `npm run build` → `cdk synth` on PR and `main`
-2. **CD (Day 12+):** on merge to `main`: CDK deploy (same app: budget + resources) → `s3 sync` → CloudFront invalidation via **GitHub OIDC → AWS**
+2. **CD (Day 13+):** on merge to `main`: CDK deploy (same app: budget + resources) → `s3 sync` → CloudFront invalidation via **GitHub OIDC → AWS**
 3. Protect `main`; one env `dev` for P0
 
 ---
@@ -219,7 +221,7 @@ docs/           # public stack, setup, API, git docs
 - Prefill: max 2 files, 8 MB, jpeg/png/pdf; 14-day lifecycle
 - Per-user daily caps on extract + chat (exact numbers in API_AND_DATA on Day 1)
 - No OpenSearch Serverless in P0
-- Cost checkpoints: Day 7 and Day 14 (Cost Explorer)
+- Cost checkpoints: Day 7 and Day 15 (Cost Explorer)
 
 ---
 
@@ -240,4 +242,4 @@ Day 0: [SETUP.md](SETUP.md). Day 1: scaffold + [API_AND_DATA.md](API_AND_DATA.md
 
 ## Lock status
 
-**LOCKED (2026-09-08; FastAPI-only, few tables, Converse-first, AgentCore skipped on Day 0, 14-day uploads, `us-east-2`, IaC-first).** Do not change P0 stack without a new **local** ADR and updates to this file and `AGENTS.md`.
+**LOCKED (2026-09-10; FastAPI-only, few tables, Converse-first, AgentCore skipped on Day 0, 14-day uploads, `us-east-2`, IaC-first, Cognito `Admin` via allowlist).** Do not change P0 stack without a new **local** ADR and updates to this file and `AGENTS.md`.

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { ApiError, apiJson, homePath } from "../api";
 import { refreshSession } from "../auth";
+import SiteFooter from "../components/SiteFooter";
 import { useSpa } from "../spa";
 
 export default function RoleChooser() {
@@ -49,8 +50,8 @@ export default function RoleChooser() {
         <p className="text-sm font-medium uppercase tracking-wide text-slate-500">TurboImmi</p>
         <h1 className="mt-2 text-3xl font-semibold">How will you use TurboImmi?</h1>
         <p className="mt-4 text-slate-700">
-          Choose once. Applicants get a profile and H-1B case. Attorneys get a later directory desk.
-          You cannot switch later.
+          Choose once. Applicants get a profile, H-1B case, and the attorney directory. Attorneys get
+          a profile desk and consult inbox. You cannot switch later.
         </p>
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
           <button
@@ -70,11 +71,12 @@ export default function RoleChooser() {
             onClick={() => void choose("Attorney")}
           >
             <p className="font-semibold">I am an Attorney</p>
-            <p className="mt-2 text-sm text-slate-600">Directory and consult inbox come on later days.</p>
+            <p className="mt-2 text-sm text-slate-600">Directory card and in-app consult inbox.</p>
             {busy === "Attorney" ? <p className="mt-3 text-sm">Saving…</p> : null}
           </button>
         </div>
         {error ? <p className="mt-4 text-sm text-red-700">{error}</p> : null}
+        <SiteFooter />
       </div>
     </main>
   );

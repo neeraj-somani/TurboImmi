@@ -29,11 +29,11 @@ This project is commonly developed on Windows 10/11 + PowerShell.
 
 - [x] Node.js 20+ (`node -v`)
 - [x] npm available (`npm -v`)
-- [ ] Python 3.12 (`py -3.12 --version` or `python --version`) — still optional locally; machine has 3.13 + 3.11. CDK uses `infra/.venv` (3.13). Lambda **runtime** stays 3.12
+- [x] Local Python: **3.12 not required**. Machine uses 3.13 (CDK/tests) and 3.11. Lambda **runtime** stays 3.12
 - [x] AWS CDK available via `npx aws-cdk` (activate `infra/.venv` first so `python` sees `aws-cdk-lib`)
 - [x] Git + GitHub SSH/HTTPS push works
 - [ ] **Docker Desktop** — not required for Day 2 Lambda bundle (local pip manylinux wheels). Start Docker only if that bundler fails
-- [x] Local loop: Vite `localhost:5173` + FastAPI `localhost:8000` `/health` (Day 1). Day 3 `/me` and `/cases` proxy to FastAPI. Real Cognito/DDB when `USERS_TABLE` / `USER_POOL_ID` are set in local `.env`. No LocalStack.
+- [x] Local loop: Vite `localhost:5173` + FastAPI `localhost:8000` `/health` (Day 1). Day 3 `/me` and `/cases`, Day 5 `/prefill`, then `/attorneys`, `/consults`, `/admin`, `/chat`, and `/alerts` proxy to FastAPI. Real Cognito/DDB when `USERS_TABLE` / `USER_POOL_ID` are set in local `.env`. Optional `DOCS_BUCKET`, `PREFILL_TABLE`, `AUDIT_TABLE`, `ATTORNEYS_TABLE`, `CONSULTS_TABLE`, `ALERTS_TABLE` for real uploads, jobs, directory, consults, and news cards (tables default to `turboimmi-dev-*` if unset). Optional empty `ADMIN_ALLOWLIST_EMAIL=` for the unused Admin grant address (never commit the value). Empty `GITHUB_REPO=` (`owner/name`) so a local CDK deploy trusts the same GitHub repo as Actions. No LocalStack.
 
 From repo root (two terminals):
 
@@ -66,22 +66,22 @@ npm run dev
   - `http://localhost:5173` (Vite dev)
   - CloudFront URL (fill in `SETUP.local.md` after first Day 2 deploy)
 - [x] Plan CORS allowlist for the same origins
-- [x] Role assignment = in-app chooser after first login → `POST /me/role` → `AdminAddUserToGroup` → token refresh; **no self-switch** after first choose
+- [x] Role assignment = in-app chooser after first login → `POST /me/role` → `AdminAddUserToGroup` → token refresh; **no self-switch** after first choose. Admin is **not** on the chooser — set `ADMIN_ALLOWLIST_EMAIL` and Sign up with that unused address; `GET /me` promotes. Do not create the user in the Cognito console
 - [x] Cognito **default email** (no SES) for verification; watch the daily send cap
 
 ## Data protection
 
 - [x] Prefill uploads bucket: private, SSE, **lifecycle expiry 14 days**
 - [x] DynamoDB **PITR** enabled on every P0 table
-- [ ] Placeholder ToS + Privacy Policy text drafted (Day 4 pages) — counsel review before public launch
+- [x] Placeholder ToS + Privacy Policy pages drafted (`/terms`, `/privacy`, marked “draft — counsel review”) — counsel review before public launch
 
 ## Secrets & CI
 
 - [x] No long-lived keys, personal emails, account IDs, or PII in git or frontend
-- [x] Real setup values only in `.env` and `SETUP.local.md`; commit `.env.example` with **empty keys** only (`BUDGET_ALERT_EMAIL=`, `BEDROCK_*_MODEL_ID=`)
+- [x] Real setup values only in `.env` and `SETUP.local.md`; commit `.env.example` with **empty keys** only (`BUDGET_ALERT_EMAIL=`, `BEDROCK_*_MODEL_ID=`, `DOCS_BUCKET=`, `ADMIN_ALLOWLIST_EMAIL=`, `GITHUB_REPO=`)
 - [x] Plan SSM paths later: `/turboimmi/dev/...`
-- [x] GitHub Actions auth = **OIDC to AWS** (implement the deploy job on **Day 12** in CDK — do not create the provider/role by CLI now). Planned: provider `token.actions.githubusercontent.com`; IAM role in `us-east-2` trusted by this GitHub repo’s `main`; permissions limited to CDK deploy + `s3 sync` + CloudFront invalidate
-- [x] Read [GIT_AND_CICD.md](GIT_AND_CICD.md): feature branches → PR → `main`; CI checks from Day 2; CD from Day 12; IaC-first (no lasting click-ops)
+- [x] GitHub Actions auth = **OIDC to AWS** (Day 13). CDK creates provider `token.actions.githubusercontent.com` and role `turboimmi-dev-github-deploy`, trusted by this repo’s `main`. After the first local `cdk deploy`, set Actions variable `AWS_DEPLOY_ROLE_ARN` to stack output `GitHubDeployRoleArn`. Add Actions **secrets** named `BUDGET_ALERT_EMAIL`, `ADMIN_ALLOWLIST_EMAIL`, `BEDROCK_CHAT_MODEL_ID`, `BEDROCK_VISION_MODEL_ID`, `BEDROCK_EMBED_MODEL_ID`. Never put those values in the workflow file. Protect `main` (PR + green `checks` required).
+- [x] Read [GIT_AND_CICD.md](GIT_AND_CICD.md): feature branches → PR → `main`; CI checks from Day 2; CD from Day 13; IaC-first (no lasting click-ops)
 
 ## Repo hygiene
 
@@ -93,8 +93,8 @@ npm run dev
 - [x] `cdk bootstrap` done
 - [x] Bedrock Converse works; model IDs recorded in `SETUP.local.md`
 - [x] Billing alarm set; CDK construct in `infra/`; **CDK-owned** after one-time delete + `cdk deploy` (local ADR 013)
-- [x] Node / CDK (`npx aws-cdk`) OK; Python 3.12 still optional locally (3.13 venv used for CDK synth; Lambda runtime stays 3.12)
+- [x] Node / CDK (`npx aws-cdk`) OK; local Python 3.12 not required (3.13 venv for CDK synth; Lambda runtime stays 3.12)
 - [x] RAG approach decided: in-Lambda retrieval (ADR 009)
 - [x] AgentCore skipped for P0 (noted in `SETUP.local.md`)
 
-**Day 3 is deployed** (same CDK stack: profile/case APIs + role chooser). After Day 0, do **not** create more AWS resources with the CLI except Bedrock model access. **Next:** owner test, then commit so CI can run; Day 4 landing / ToS / Privacy.
+**Days 5–11 are deployed.** After Day 0, do **not** create more AWS resources with the CLI except Bedrock model access.

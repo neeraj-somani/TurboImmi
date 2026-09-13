@@ -40,6 +40,73 @@ jobs:
           CDK_DEFAULT_REGION: us-east-2
           BUDGET_ALERT_EMAIL: ci@example.com
           COGNITO_DOMAIN_PREFIX: turboimmi-dev
+          GITHUB_REPO: ${{ github.repository }}
         run: |
           python -m pip install -r requirements.txt
           npx --yes aws-cdk synth
+
+  deploy:
+    needs: checks
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      AWS_REGION: us-east-2
+      CDK_DEFAULT_REGION: us-east-2
+      COGNITO_DOMAIN_PREFIX: turboimmi-dev
+      BUDGET_ALERT_EMAIL: ${{ secrets.BUDGET_ALERT_EMAIL }}
+      ADMIN_ALLOWLIST_EMAIL: ${{ secrets.ADMIN_ALLOWLIST_EMAIL }}
+      BEDROCK_CHAT_MODEL_ID: ${{ secrets.BEDROCK_CHAT_MODEL_ID }}
+      BEDROCK_VISION_MODEL_ID: ${{ secrets.BEDROCK_VISION_MODEL_ID }}
+      BEDROCK_EMBED_MODEL_ID: ${{ secrets.BEDROCK_EMBED_MODEL_ID }}
+      GITHUB_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Require deploy role variable
+        env:
+          AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+        run: |
+          if [ -z "$AWS_DEPLOY_ROLE_ARN" ]; then
+            echo "Set repository variable AWS_DEPLOY_ROLE_ARN to stack output GitHubDeployRoleArn after the first local cdk deploy."
+            exit 1
+          fi
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-2
+
+      - name: CDK deploy
+        working-directory: infra
+        run: |
+          python -m pip install -r requirements.txt
+          CDK_DEFAULT_ACCOUNT="$(aws sts get-caller-identity --query Account --output text)"
+          export CDK_DEFAULT_ACCOUNT
+          npx --yes aws-cdk deploy TurboImmiDev --require-approval never
+
+      - name: Sync SPA and invalidate
+        run: |
+          WEB_BUCKET="$(aws cloudformation describe-stacks --stack-name TurboImmiDev --query "Stacks[0].Outputs[?OutputKey=='WebBucketName'].OutputValue" --output text)"
+          DIST_ID="$(aws cloudformation describe-stacks --stack-name TurboImmiDev --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" --output text)"
+          aws s3 sync frontend/dist "s3://${WEB_BUCKET}" --delete --exclude config.json
+          aws cloudfront create-invalidation --distribution-id "${DIST_ID}" --paths "/*"

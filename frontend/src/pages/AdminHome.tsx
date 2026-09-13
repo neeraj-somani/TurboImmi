@@ -1,13 +1,13 @@
 import { Link, Navigate } from "react-router-dom";
-import { homePath } from "../api";
 import disclaimer from "../../../shared/disclaimer.json";
+import { homePath } from "../api";
 import { startHostedUiLogout } from "../auth";
-import AttorneyDesk from "../components/AttorneyDesk";
+import AdminDesk from "../components/AdminDesk";
 import NewsCards from "../components/NewsCards";
 import SiteFooter from "../components/SiteFooter";
 import { useSpa } from "../spa";
 
-export default function AttorneyHome() {
+export default function AdminHome() {
   const { config, me, signedIn } = useSpa();
 
   if (!signedIn) {
@@ -16,7 +16,7 @@ export default function AttorneyHome() {
   if (!me?.roleChosen) {
     return <Navigate to="/choose-role" replace />;
   }
-  if (me.role !== "Attorney") {
+  if (me.role !== "Admin") {
     return <Navigate to={homePath(me)} replace />;
   }
 
@@ -25,8 +25,8 @@ export default function AttorneyHome() {
       <div className="mx-auto max-w-2xl px-6 py-12">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-sm font-medium uppercase tracking-wide text-slate-500">Attorney</p>
-            <h1 className="mt-1 text-2xl font-semibold">Attorney desk</h1>
+            <p className="text-sm font-medium uppercase tracking-wide text-slate-500">Admin</p>
+            <h1 className="mt-1 text-2xl font-semibold">Verification desk</h1>
           </div>
           <div className="flex gap-3 text-sm">
             <Link className="underline" to="/">
@@ -39,12 +39,11 @@ export default function AttorneyHome() {
         </div>
         <p className="mt-4 text-slate-700">{disclaimer.marketplace}</p>
         <p className="mt-2 text-sm text-slate-600">
-          This account is locked to Attorney. Applicant case APIs stay blocked. Self-created listings
-          stay unpublished and show an Unverified badge. This is referral only — TurboImmi does not
-          assign counsel.
+          Basic listing checks only — not a bar lookup and not legal advice. Applicant packets stay
+          hidden. Publishing a card does not assign counsel.
         </p>
         <div className="mt-8">
-          <AttorneyDesk config={config} />
+          <AdminDesk config={config} />
         </div>
         <NewsCards config={config} />
         <SiteFooter />

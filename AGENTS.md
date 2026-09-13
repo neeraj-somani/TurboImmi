@@ -54,7 +54,7 @@ Locked docs change only with a local ADR. End the reply by listing changed doc f
 - **Region:** **`us-east-2`** (all P0 AWS resources; do not use us-east-1)
 - **Local AI assist (optional):** Agent Toolkit for AWS (Cursor `aws-mcp` + skills). Toolkit APIs are us-east-1; that does not move app resources.
 - **Frontend:** React 18 + TypeScript + Vite + Tailwind → **S3 + CloudFront** SPA
-- **Auth:** Amazon Cognito (`Applicant`, `Attorney` groups); role lock after first choose
+- **Auth:** Amazon Cognito (`Applicant`, `Attorney`, `Admin` groups); role lock after first choose. Admin is allowlist-grant (`ADMIN_ALLOWLIST_EMAIL`), never a chooser button
 - **API:** API Gateway HTTP API + Python 3.12 Lambda (**FastAPI + Mangum**)
 - **DB:** DynamoDB **few tables** (on-demand, PITR)
 - **Files:** Private S3 + presigned URLs; jpeg/png/pdf; max 8 MB; max 2 files; **14-day** lifecycle + delete-after-confirm
@@ -62,7 +62,7 @@ Locked docs change only with a local ADR. End the reply by listing changed doc f
 - **RAG:** embeddings + in-Lambda cosine over tiny corpus (local ADR 009); no OpenSearch Serverless in P0
 - **Disclaimer:** `shared/disclaimer.json` (frontend + backend)
 - **IaC:** AWS CDK (Python), **IaC-first** — all P0 AWS resources in `infra/`; CDK-owned `$10` budget (local ADR 013; CloudFormation cannot import it); no lasting click-ops (local ADR 012)
-- **Secrets / PII:** never in git. Real values only in `.env` and `docs/SETUP.local.md`. Public `.env.example` has empty keys (`BUDGET_ALERT_EMAIL=`, `BEDROCK_*_MODEL_ID=`). Do not ask whether to commit these.
+- **Secrets / PII:** never in git. Real values only in `.env` and `docs/SETUP.local.md`. Public `.env.example` has empty keys (`BUDGET_ALERT_EMAIL=`, `BEDROCK_*_MODEL_ID=`, `ADMIN_ALLOWLIST_EMAIL=`). Do not ask whether to commit these.
 - **CI/CD:** GitHub Actions with **OIDC → AWS** (see [docs/GIT_AND_CICD.md](docs/GIT_AND_CICD.md))
 
 Do **not** introduce Next.js SSR, RDS, ECS/EKS, Spark/Databricks, or paid X API in P0 without a local ADR.
@@ -89,17 +89,17 @@ Local loop: Vite `:5173` + FastAPI `:8000` → real Cognito / DynamoDB / S3 / Be
 6. Secrets and setup PII never in frontend or git. Write emails, account IDs, keys, and names to `.env` and/or `SETUP.local.md` only. Public docs use variable names (`BUDGET_ALERT_EMAIL`), never values. CDK reads env at synth/deploy. If a real value lands in a public file, remove it the same turn. Never `git add` `.env` or `SETUP.local.md` — do not ask. Runtime secrets later: SSM/Secrets Manager.
 7. Prefer deterministic Python for CRUD/validation; Bedrock for extract/explain/cited chat.
 8. Git: short-lived `feature/*` → PR → `main`; no long-lived day-branches; revert/tags for rollback ([docs/GIT_AND_CICD.md](docs/GIT_AND_CICD.md)). AWS resources via CDK only after Day 0.
-9. Roles: in-app chooser → `POST /me/role` → `AdminAddUserToGroup` → token refresh; **no self-switch** after first choose. Attorney directory auth-only; self-created attorneys `published=false` + "Unverified".
+9. Roles: in-app chooser (Applicant / Attorney only) → `POST /me/role` → `AdminAddUserToGroup` → token refresh; **no self-switch** after first choose. Admin is allowlisted email on `GET /me`, never a chooser button. Attorney directory auth-only; self-created attorneys `published=false` + "Unverified" until Admin publishes.
 10. `ready_to_file` in P0 = attestation checkbox + consult CTA (linked attorney review is P1).
 11. Uploaded PII: private SSE bucket, 14-day lifecycle, deletable; never log OCR text.
 12. One shared `DISCLAIMER` in `shared/disclaimer.json` reused by frontend and backend prompts.
 
 ## MVP focus
 
-H-1B path + thin AI prefill (passport + offer letter) + short intent interview + attorney marketplace (directory + consult request) + scoped policy chat. Journey model supports F-1→OPT→H-1B→H-4→EB later.
+H-1B path + thin AI prefill (passport + offer letter) + short intent interview + attorney marketplace (directory + consult request) + thin Admin desk + scoped policy chat. Journey model supports F-1→OPT→H-1B→H-4→EB later.
 
 ## Next implementation gate
 
-1. Day 0–3 live (hello path + profile/case APIs + role chooser). Optional leftover: local Python 3.12. CI/tag wait on a public commit.
-2. Day 4: landing polish, disclaimer gate, placeholder ToS + Privacy, dual dashboards.
+1. Day 0–13 implemented and deployed (chat, news cards, OIDC role on the existing CloudFront + API). First Actions deploy still needs GitHub `AWS_DEPLOY_ROLE_ARN` + named secrets + protect `main`. Local Python 3.12 not required. CI/tag wait on merging the public branch.
+2. Day 14: E2E demo path (all three roles).
 3. Follow the **local** implementation plan (day-by-day) incl. its daily ritual.

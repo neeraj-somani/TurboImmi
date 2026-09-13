@@ -1,7 +1,7 @@
 # TurboImmi — Git & CI/CD (DevOps)
 
-> **Status: LOCKED** (2026-09-07; IaC-first + no secrets/PII in git, local ADR 012)  
-> Solo P0 practices. **CI checks from Day 2; CD (deploy) from Day 12.**  
+> **Status: LOCKED** (2026-09-07; IaC-first + no secrets/PII in git, local ADR 012; CD Day 13 per ADR 016)  
+> Solo P0 practices. **CI checks from Day 2; CD (deploy) from Day 13.**  
 > **Auth:** GitHub OIDC → AWS (no long-lived keys).
 
 ## Local planning vs this repo
@@ -37,23 +37,23 @@ Day-1…Day-14 branches go stale, cause merge pain, and don’t match shippable 
 2. Implement + test locally
 3. Open PR → fill the **PR template** (`.github/pull_request_template.md`) incl. the **public** docs-sync checklist → CI must pass (pytest, frontend build, `cdk synth`)
 4. Merge (squash OK for solo)
-5. Deploy from `main` (manual `cdk deploy` + `s3 sync` until Day 12; Actions after)
+5. Deploy from `main` (manual `cdk deploy` + `s3 sync` until Day 13; Actions after)
 6. Smoke-test CloudFront + API
 
-Protect `main`: require PR + green CI before merge (enable on Day 2 once `ci.yml` exists).
+Protect `main`: require PR + green **`checks`** before merge (enable in the GitHub repo: Settings → Branches). The Day 13 `deploy` job runs only after a push to `main`.
 
 ## CI/CD pipeline
 
 | Trigger | Actions |
 |---------|---------|
 | PR → `main` (**Day 2+**) | `pytest`, `npm run build`, `cdk synth` — **block merge on failure** |
-| Push/merge to `main` (**Day 12+**) | Deploy `turboimmi-dev` in **`us-east-2`**: CDK deploy → `s3 sync` → CloudFront invalidation |
+| Push/merge to `main` (**Day 13+**) | After `checks`: assume `AWS_DEPLOY_ROLE_ARN` (OIDC) → CDK deploy → `s3 sync` (keep `config.json`) → CloudFront invalidation. Workflow file uses secret **names** only |
 | Secrets | **GitHub OIDC → AWS**; no long-lived keys in repo |
 | Environments | One env P0 (`dev`); add `prod` later with same branch rules |
 
 **Rule:** Broken work may exist on a feature branch. **`main` must stay demo-safe.**
 
-Infra changes ship like app changes: `feature/*` → PR → `cdk synth` in CI → merge to `main` → deploy from `main` (manual `cdk deploy` until Day 12). **Do not** create Cognito, buckets, tables, APIs, budgets, or alarms in the console and leave them unmanaged. Emergency CLI/console changes must be imported or recreated in CDK the same work day.
+Infra changes ship like app changes: `feature/*` → PR → `cdk synth` in CI → merge to `main` → deploy from `main` (manual `cdk deploy` until Day 13). **Do not** create Cognito, buckets, tables, APIs, budgets, or alarms in the console and leave them unmanaged. Emergency CLI/console changes must be imported or recreated in CDK the same work day.
 
 **Secrets / PII:** never commit `.env`, personal emails, account IDs, or keys. CI/CD uses **OIDC** (and repo secrets only if the owner adds them). Never bake personal emails into workflow files. Public docs may name variables (`BUDGET_ALERT_EMAIL`); values stay in local `.env` / `SETUP.local.md`.
 
@@ -73,7 +73,7 @@ Tag after major green deploys:
 |-------------|------|
 | `p0-d2-hello` | Cognito + CF + JWT health works |
 | `p0-d8-score` | Validation score path works |
-| `p0-d12-ci` | CD pipeline deploys from `main` |
+| `p0-d13-ci` | CD pipeline deploys from `main` |
 | `p0-mvp` | P0 Definition of Done met |
 
 Note tags in the author's local changelog (not in this repo).
