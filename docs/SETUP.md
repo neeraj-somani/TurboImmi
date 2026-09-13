@@ -80,7 +80,7 @@ npm run dev
 - [x] No long-lived keys, personal emails, account IDs, or PII in git or frontend
 - [x] Real setup values only in `.env` and `SETUP.local.md`; commit `.env.example` with **empty keys** only (`BUDGET_ALERT_EMAIL=`, `BEDROCK_*_MODEL_ID=`, `DOCS_BUCKET=`, `ADMIN_ALLOWLIST_EMAIL=`, `GITHUB_REPO=`)
 - [x] Plan SSM paths later: `/turboimmi/dev/...`
-- [x] GitHub Actions auth = **OIDC to AWS** (Day 13). CDK creates provider `token.actions.githubusercontent.com` and role `turboimmi-dev-github-deploy`, trusted by this repo’s `main`. After the first local `cdk deploy`, set Actions variable `AWS_DEPLOY_ROLE_ARN` to stack output `GitHubDeployRoleArn`. Add Actions **secrets** named `BUDGET_ALERT_EMAIL`, `ADMIN_ALLOWLIST_EMAIL`, `BEDROCK_CHAT_MODEL_ID`, `BEDROCK_VISION_MODEL_ID`, `BEDROCK_EMBED_MODEL_ID`. Never put those values in the workflow file. Protect `main` (PR + green `checks` required).
+- [x] GitHub Actions auth = **OIDC to AWS** (Day 13). CDK creates provider `token.actions.githubusercontent.com` and role `turboimmi-dev-github-deploy`, trusted by this repo’s `main` under both GitHub OIDC `sub` shapes (name-only and `owner@id/repo@id` for repos created after 2026-07-15). After the first local `cdk deploy`, set Actions variable `AWS_DEPLOY_ROLE_ARN` to stack output `GitHubDeployRoleArn`. Add Actions **secrets** named `BUDGET_ALERT_EMAIL`, `ADMIN_ALLOWLIST_EMAIL`, `BEDROCK_CHAT_MODEL_ID`, `BEDROCK_VISION_MODEL_ID`, `BEDROCK_EMBED_MODEL_ID`. Never put those values in the workflow file. Protect `main` (PR + green `checks` required).
 - [x] Read [GIT_AND_CICD.md](GIT_AND_CICD.md): feature branches → PR → `main`; CI checks from Day 2; CD from Day 13; IaC-first (no lasting click-ops)
 
 ## Repo hygiene
