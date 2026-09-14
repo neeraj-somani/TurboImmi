@@ -217,7 +217,7 @@ docs/           # public stack, setup, API, git docs
 - CloudFront + S3 (pennies for traffic)
 - Bedrock: token caps, cache policy chunks, rules-first validation
 - One region (`us-east-2`)
-- Billing alarm + Bedrock usage alarm day one (CDK-managed `$10` budget `turboimmi-dev-monthly`; email from `BUDGET_ALERT_EMAIL`)
+- Billing alarm + Bedrock usage alarm day one (CDK-managed `$10` budget `turboimmi-dev-monthly`; email from `BUDGET_ALERT_EMAIL`; CD must not rewrite that alarm — local ADR 019)
 - Prefill: max 2 files, 8 MB, jpeg/png/pdf; 14-day lifecycle
 - Per-user daily caps on extract + chat (exact numbers in API_AND_DATA on Day 1)
 - No OpenSearch Serverless in P0
