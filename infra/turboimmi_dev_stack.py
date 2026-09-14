@@ -32,15 +32,38 @@ from lambda_bundling import LambdaLocalBundling
 
 BUDGET_NAME = "turboimmi-dev-monthly"
 SYNTH_PLACEHOLDER_EMAIL = "placeholder@example.com"
+_CI_BUDGET_EMAILS = frozenset({SYNTH_PLACEHOLDER_EMAIL, "ci@example.com"})
 REPO = Path(__file__).resolve().parent.parent
 LOCALHOST = "http://localhost:5173"
 
 
+def _is_synth_only() -> bool:
+    return (os.environ.get("CDK_DEFAULT_ACCOUNT") or "") in ("", "000000000000")
+
+
 def _budget_alert_email() -> str:
     email = (os.environ.get("BUDGET_ALERT_EMAIL") or "").strip()
-    if email:
+    if _is_synth_only():
+        return email or SYNTH_PLACEHOLDER_EMAIL
+    if email and email not in _CI_BUDGET_EMAILS:
         return email
-    return SYNTH_PLACEHOLDER_EMAIL
+    raise ValueError(
+        "BUDGET_ALERT_EMAIL must be a real address for deploy. "
+        "Set the GitHub Actions repository secret (Secrets, not Variables). "
+        "Do not change the $10 budget from CI; the deploy role is not the account root."
+    )
+
+
+def _deploy_env(key: str) -> str:
+    value = (os.environ.get(key) or "").strip()
+    if value:
+        return value
+    if _is_synth_only():
+        return ""
+    raise ValueError(
+        f"{key} is required for deploy. Set the GitHub Actions repository secret "
+        "(Secrets, not Variables) so CD does not clear the live Lambda env."
+    )
 
 
 def _cognito_prefix() -> str:
@@ -344,10 +367,10 @@ class TurboImmiDevStack(Stack):
                 "POLICY_TABLE": tables["policy"].table_name,
                 "AUDIT_TABLE": tables["audit"].table_name,
                 "DOCS_BUCKET": docs_bucket.bucket_name,
-                "BEDROCK_VISION_MODEL_ID": os.environ.get("BEDROCK_VISION_MODEL_ID", ""),
-                "BEDROCK_CHAT_MODEL_ID": os.environ.get("BEDROCK_CHAT_MODEL_ID", ""),
-                "BEDROCK_EMBED_MODEL_ID": os.environ.get("BEDROCK_EMBED_MODEL_ID", ""),
-                "ADMIN_ALLOWLIST_EMAIL": os.environ.get("ADMIN_ALLOWLIST_EMAIL", ""),
+                "BEDROCK_VISION_MODEL_ID": _deploy_env("BEDROCK_VISION_MODEL_ID"),
+                "BEDROCK_CHAT_MODEL_ID": _deploy_env("BEDROCK_CHAT_MODEL_ID"),
+                "BEDROCK_EMBED_MODEL_ID": _deploy_env("BEDROCK_EMBED_MODEL_ID"),
+                "ADMIN_ALLOWLIST_EMAIL": _deploy_env("ADMIN_ALLOWLIST_EMAIL"),
             },
             code=lambda_.Code.from_asset(
                 str(REPO),

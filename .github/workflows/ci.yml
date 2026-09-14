@@ -84,6 +84,25 @@ jobs:
             exit 1
           fi
 
+      - name: Require deploy secrets
+        run: |
+          missing=0
+          for key in BUDGET_ALERT_EMAIL ADMIN_ALLOWLIST_EMAIL BEDROCK_CHAT_MODEL_ID BEDROCK_VISION_MODEL_ID BEDROCK_EMBED_MODEL_ID; do
+            eval "val=\${$key}"
+            if [ -z "$val" ]; then
+              echo "Missing repository secret $key."
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Add those names under Settings → Secrets and variables → Actions → Repository secrets."
+            echo "Environment secrets are invisible unless this job sets environment:."
+            echo "Do not put them under Variables."
+            echo "Empty secrets make CDK rewrite the \$10 budget to a placeholder and clear Lambda model IDs."
+            echo "Budget email changes stay on a laptop deploy; the GitHub role is not the account root."
+            exit 1
+          fi
+
       - name: Build frontend
         working-directory: frontend
         run: |

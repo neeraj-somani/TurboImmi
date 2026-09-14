@@ -100,6 +100,6 @@ H-1B path + thin AI prefill (passport + offer letter) + short intent interview +
 
 ## Next implementation gate
 
-1. Day 0–13 implemented and deployed (chat, news cards, OIDC role on the existing CloudFront + API). First Actions deploy still needs GitHub `AWS_DEPLOY_ROLE_ARN` + named secrets + protect `main`. Local Python 3.12 not required. CI/tag wait on merging the public branch.
+1. Day 0–13 implemented and deployed (chat, news cards, OIDC role on the existing CloudFront + API). First Actions deploy: OIDC works; repository **Secrets** (not Variables) must be set for `BUDGET_ALERT_EMAIL`, `ADMIN_ALLOWLIST_EMAIL`, and `BEDROCK_*_MODEL_ID` so CD does not rewrite the `$10` budget. Local Python 3.12 not required.
 2. Day 14: E2E demo path (all three roles).
 3. Follow the **local** implementation plan (day-by-day) incl. its daily ritual.
